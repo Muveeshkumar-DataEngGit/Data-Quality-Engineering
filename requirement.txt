@@ -1,0 +1,27 @@
+# Data handling
+pandas>=2.2,<2.3
+numpy>=1.26
+openpyxl
+xlsxwriter
+
+# Fuzzy & semantic matching
+rapidfuzz>=3.9,<4.0
+torch>=2.2
+sentence-transformers>=2.7,<3.0
+scikit-learn>=1.5
+googletrans==4.0.0rc1
+
+# Snowflake
+snowflake-connector-python
+huggingface_hub[hf_xet]
+
+# Jupyter / VS Code Notebook support
+notebook
+ipykernel
+
+# Utilities
+tqdm
+joblib
+
+# GUI for file selection
+tk
