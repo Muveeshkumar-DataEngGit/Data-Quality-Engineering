@@ -1,0 +1,4 @@
+pandas==2.2.2        #Data handling
+transformers==4.40.2  #AI summarization
+torch==2.2.2         #model execution
+tqdm==4.66.4          #tracking
