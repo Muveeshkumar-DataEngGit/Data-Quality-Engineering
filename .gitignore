@@ -16,6 +16,7 @@ __pycache__/
 # Data files
 *.csv
 *.xlsx
+Formula.txt
 
 # Optional specific ignores
 Translator.ipynb
