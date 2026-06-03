@@ -1,1 +1,0 @@
-1). For series give any number of entity id's with ",". Should able the do the matching for all the episodes and series
