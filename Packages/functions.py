@@ -12,7 +12,7 @@ import re
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from sentence_transformers import CrossEncoder
-
+import shutil
 
 
 class initial_class:
