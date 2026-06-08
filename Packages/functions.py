@@ -249,7 +249,7 @@ class all_functions:
     # =========================================================
 
     @staticmethod
-    def apply_cross_encoder(df, colA, colB, semantic_col, out_col, low=80, high=88):
+    def apply_cross_encoder(df, colA, colB, semantic_col, out_col, cross_model, low=80, high=88):
 
         df[out_col] = None
 
@@ -259,7 +259,7 @@ class all_functions:
 
         if not pairs:
             return df
-
+        
         scores = cross_model.predict(pairs)
         df.loc[mask, out_col] = [round(s * 100, 2) for s in scores]
 
@@ -330,8 +330,8 @@ class all_functions:
     # Step 5: Combined Series + Episode Logic
     # =========================================================
     
-    @staticmethod
-    def combined_match_logic(self, row):
+
+    def combined_match_logic(self,row):
         r0 = row.get("MATCH_RESULT_0")   # series_title vs parent_title result
         r1 = row.get("MATCH_RESULT_1")   # input_title vs atom_title result
 
