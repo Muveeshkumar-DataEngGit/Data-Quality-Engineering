@@ -5,11 +5,155 @@ import math
 import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer, CrossEncoder, util
+import unicodedata
 
 
 class all_functions:
     def __init__(self):
-        pass
+        self.writer = None
+        self.workbook = None
+
+    def set_writer(self, writer):
+        self.writer = writer
+        self.workbook = writer.book
+        # -----------------------------
+        # 1) Define column grouping rules (your requirement)
+        # -----------------------------
+        self.GROUPS = {
+            "STANDALONE": [
+                ("MATCHED OUTPUT", ["ID","INPUT_TITLES","ATOM_TITLE","INPUT_YEAR","YEARS","TT_CODES"]),
+                ("STANDALONE INFO", ["IP_TYPE","NODE_IDENTIFIER"]),
+                ("PARENT INFO", ["PARENT_TITLE","PARENT_ENTITY","PARENT_MPM"]),
+                ("SCORES", ["SEMANTIC_SCORE","MATCH_RESULT"]),
+                ("IDENTIFIERS", ["MPM_NUMBER","PI_UUID","PROPERTY_ID","HBO_ID","META_ID","TURNER_TITLEID","MMS3_MCODE",
+                                "DASH_TITLE_ID","ALEPH_ID","IBROADCAST_EMEA_ID","IBROADCAST_APAC_ID",
+                                "For Ingestion"])
+            ],
+
+            "SERIES": [
+                ("MATCHED OUTPUT", ["ID","INPUT_TITLES","ATOM_TITLE","INPUT_YEAR","YEARS","TT_CODES"]),
+                ("SERIES INFO", ["IP_TYPE","NODE_IDENTIFIER","CHILDREN_STATUS"]),
+                ("SCORES", ["SEMANTIC_SCORE","MATCH_RESULT"]),
+                ("IDENTIFIERS", ["MPM_NUMBER","PI_UUID","HBO_ID","META_ID","TURNER_TITLEID","MMS3_MCODE",
+                                "DASH_TITLE_ID","ALEPH_ID","IBROADCAST_EMEA_ID","IBROADCAST_APAC_ID",
+                                "For Ingestion"])
+            ],
+
+            "SEASON": [
+                ("MATCHED OUTPUT", ["ID","INPUT_TITLES","ATOM_TITLE","INPUT_YEAR","YEARS","TT_CODES"]),
+                ("SEASON INFO", ["IP_TYPE","NODE_IDENTIFIER","CHILDREN_STATUS"]),
+                ("PARENT INFO", ["PARENT_TITLE","PARENT_ENTITY","PARENT_MPM"]),
+                ("SCORES", ["SEMANTIC_SCORE","MATCH_RESULT"]),
+                ("IDENTIFIERS", ["MPM_NUMBER","PI_UUID","PROPERTY_ID","HBO_ID","META_ID","TURNER_TITLEID","MMS3_MCODE",
+                                "DASH_TITLE_ID","ALEPH_ID","IBROADCAST_EMEA_ID","IBROADCAST_APAC_ID",
+                                "For Ingestion"])
+            ],
+
+            "EPISODICS": [
+                ("MATCHED OUTPUT", ["ID","SERIES_TITLE","PARENT_TITLE","INPUT_TITLE","ATOM_TITLE","INPUT_YEAR","YEARS","TT_CODES"]),
+                ("EPISODE INFO", ["IP_TYPE","NODE_IDENTIFIER"]),
+                ("PARENT INFO", ["PARENT_ENTITY","PARENT_MPM"]),
+                ("SCORES", ["SEMANTIC_SCORE_1","FINAL_MATCH_RESULT"]),
+                ("IDENTIFIERS", ["MPM_NUMBER","PI_UUID","PROPERTY_ID","HBO_ID","META_ID","TURNER_TITLEID","MMS3_MCODE",
+                                "DASH_TITLE_ID","ALEPH_ID","IBROADCAST_EMEA_ID","IBROADCAST_APAC_ID",
+                                "For Ingestion"])
+            ]
+        }
+
+        # ✅ Priority columns + EXACT output labels you want
+        self.INGESTION_PRIORITY_LABELS = [
+            ("MPM_NUMBER",          "MPM_Number"),
+            ("PI_UUID",             "PI_UUID"),
+            ("PROPERTY_ID",         "Property_ID"),
+            ("HBO_ID",              "HBO_ID"),
+            ("META_ID",             "Meta_ID"),
+            ("TURNER_TITLEID",      "Turner_TitleID"),
+            ("MMS3_MCODE",          "MMS3_MCode"),
+            ("DASH_TITLE_ID",       "DASH_Title_ID"),
+            ("ALEPH_ID",            "Aleph_ID"),
+            ("IBROADCAST_EMEA_ID",  "iBroadcast_EMEA_ID"),
+            ("IBROADCAST_APAC_ID",  "iBroadcast_APAC_ID"),
+        ]
+
+        # ✅ Columns to normalize to numeric where possible:
+        # - int if integer-like
+        # - float if decimal
+        # - else keep original
+        self.NUM_COERCE_COLS = [
+            "PROPERTY_ID",
+            "HBO_ID",
+            "META_ID",
+            "TURNER_TITLEID",
+            "MMS3_MCODE",
+            "DASH_TITLE_ID",
+            "ALEPH_ID",
+            "IBROADCAST_EMEA_ID",
+            "IBROADCAST_APAC_ID",
+            "PARENT_MPM",
+            "YEARS",
+        ]
+        # Base URLs
+        self.RELTIO_BASE_URL = "https://361.reltio.com/nui/RohAASgkA5WQGA9/profile?entityUri=entities%2F"
+        self.IMDB_BASE_URL   = "https://www.imdb.com/title/"
+
+        # Formats
+        self.header_format = self.workbook.add_format({
+            "bold": True, "text_wrap": True, "valign": "middle", "align": "center",
+            "border": 1, "bg_color": "#97F8A9"
+        })
+        self.border_format = self.workbook.add_format({"border": 1})
+
+        self.id_green  = self.workbook.add_format({"bg_color": "#3BF160", "border": 1, "bold": True})
+        self.id_yellow = self.workbook.add_format({"bg_color": "#FCFF34", "border": 1, "bold": True})
+
+        self.group_band_format = self.workbook.add_format({
+            "bold": True, "align": "center", "valign": "vcenter",
+            "border": 1, "bg_color": "#279516", "font_color": "#FFFFFF"
+        })
+
+        self.header_format_match = self.workbook.add_format({
+            "bold": True,
+            "text_wrap": False,
+            "valign": "middle",
+            "align": "center",
+            "border": 1,
+            "bg_color": "#97F8A9"
+        })
+
+        self.link_format = self.workbook.add_format({
+            "border": 1,
+            "font_color": "#0563C1",
+            "underline": 1
+        })
+
+        # ✅ red format for NO ID/NO_ID in For Ingestion
+        self.no_id_red_format = self.workbook.add_format({
+            "border": 1,
+            "font_color": "#FF0000",
+            "bold": True
+        })
+
+        # ✅ NEW: red highlight for any IDENTIFIERS value containing "|"
+        self.pipe_red_format = self.workbook.add_format({
+            "border": 1,
+            "font_color": "#9C0006",
+            "bg_color": "#FFC7CE",   # light red fill
+            "bold": True
+        })
+
+        self.FIXED_WIDTHS = {
+            "MPM_NUMBER": 16,
+            "PARENT_MPM": 16,
+            "MMS3_MCODE": 16,
+            "NODE_IDENTIFIER": 28,
+            "TT_CODES": 16,
+            "PROPERTY_ID": 14,
+            "TURNER_TITLEID": 14,
+            "For Ingestion": 18,
+        }
+        self.MIN_COL_WIDTH = 10
+        self.MAX_COL_WIDTH = 60
+
     
     @staticmethod
     def split_aka(title):
@@ -18,6 +162,35 @@ class all_functions:
         
         parts = re.split(r'\s*(?:\s/\s|\bAKA\b)\s*', title, flags=re.IGNORECASE)
         return [p.strip() for p in parts if p.strip()]
+    
+    @staticmethod
+    def normalize_title(title):
+        if pd.isna(title):
+            return ""
+        
+        # 1️⃣ Normalize Unicode (NFKD separates accents)
+        title = unicodedata.normalize('NFKD', str(title))
+        
+        # 2️⃣ Remove accent marks (convert → ASCII)
+        title = title.encode('ascii', 'ignore').decode('utf-8')
+        
+        # 3️⃣ Lowercase
+        title = title.lower()
+        
+        # 4️⃣ Remove punctuation
+        title = re.sub(r"[^\w\s'\-]", '', title)
+        
+        # 5️⃣ Remove 4-digit year
+        title = re.sub(r'\s+\b(19|20)\d{2}\b$', '', title)
+
+        # 6️⃣ Remove EDITED VERSION and SUBTITLE VERSION
+        title = re.sub(r'\b(SUBTITLED VERSION|EDITED VERSION|SUBTITLED|SUBTITLES)\b', '', title, flags=re.IGNORECASE).strip()
+        
+        # 7️⃣ Remove extra spaces
+        title = " ".join(title.split())
+        
+        return title
+
 
     @staticmethod
     def genric_merger(title, series_title, season_number, episode_number):
@@ -62,12 +235,13 @@ class all_functions:
     @staticmethod
     def get_connection():
         return snowflake.connector.connect(
-            user="MUVEESHKUMAR.SHANMUGAM@WBD.COM",
-            password="your_password",
-            account="WBD-COMMONDATAPROD",
-            warehouse="CLOUD_DCP_MSC_CDS_ENGINEER_GENERA",
-            database="BOLT_MSC_CDS_PROD",
-            schema="ATOM_BI"
+            user='MUVEESHKUMAR.SHANMUGAM@WBD.COM',
+            password='MUVEE@23devamanohari', # optional
+            account='WBD-COMMONDATAPROD',   
+            database='BOLT_MSC_CDS_PROD',
+            schema='ATOM_BI',
+            role='PUBLIC',
+            authenticator='externalbrowser'
         )
 
     # =========================================================
@@ -75,7 +249,7 @@ class all_functions:
     # =========================================================
 
     @staticmethod
-    def apply_cross_encoder(self,df, colA, colB, semantic_col, out_col, low=80, high=88):
+    def apply_cross_encoder(df, colA, colB, semantic_col, out_col, low=80, high=88):
 
         df[out_col] = None
 
@@ -86,7 +260,7 @@ class all_functions:
         if not pairs:
             return df
 
-        scores = self.cross_model.predict(pairs)
+        scores = cross_model.predict(pairs)
         df.loc[mask, out_col] = [round(s * 100, 2) for s in scores]
 
         return df
@@ -307,9 +481,10 @@ class all_functions:
                 df[col] = df[col].apply(self.try_number_preserve_decimals)
         return df
     
-    @staticmethod
+  
     def apply_grouped_formatting(self, df, sheet_name, ip_mode):
-        groups = GROUPS.get(ip_mode, GROUPS["STANDALONE"])
+        
+        groups = self.GROUPS.get(ip_mode, self.GROUPS["STANDALONE"])
         ordered_cols = self.flatten_groups(groups)
 
         existing_order = [c for c in ordered_cols if c in df.columns]
@@ -318,7 +493,7 @@ class all_functions:
         df2 = df.reindex(columns=final_cols)
 
         # numeric conversion (int if integer-like else float if decimal else keep)
-        df2 = self.convert_columns_try_number_preserve_decimals(df2, NUM_COERCE_COLS)
+        df2 = self.convert_columns_try_number_preserve_decimals(df2, self.NUM_COERCE_COLS)
 
         # ✅ IDENTIFIERS columns list for this mode (used for pipe highlighting)
         identifiers_cols = []
@@ -333,7 +508,7 @@ class all_functions:
         conds = []
         labels = []
 
-        for col, out_label in INGESTION_PRIORITY_LABELS:
+        for col, out_label in self.INGESTION_PRIORITY_LABELS:
             if col in df2.columns:
                 s_str = df2[col].astype("string").str.strip()
                 cond = (
@@ -351,8 +526,8 @@ class all_functions:
         leftovers_now = [c for c in df2.columns if c not in ordered_cols]
         df2 = df2.reindex(columns=ordered_now + leftovers_now)
 
-        worksheet = workbook.add_worksheet(sheet_name)
-        writer.sheets[sheet_name] = worksheet
+        worksheet = self.workbook.add_worksheet(sheet_name)
+        self.writer.sheets[sheet_name] = worksheet
 
         worksheet.set_row(0, 20)
         worksheet.set_row(1, 30)
@@ -366,23 +541,23 @@ class all_functions:
                 continue
             start = col_positions[cols_present[0]]
             end   = col_positions[cols_present[-1]]
-            worksheet.merge_range(0, start, 0, end, group_name, group_band_format)
+            worksheet.merge_range(0, start, 0, end, group_name, self.group_band_format)
 
         # headers
         for col_num, col_name in enumerate(df2.columns):
-            fmt = header_format if col_name == "Sno" else header_format_match
+            fmt = self.header_format if col_name == "Sno" else self.header_format_match
             worksheet.write(1, col_num, col_name, fmt)
 
         worksheet.autofilter(1, 0, 1, len(df2.columns) - 1)
 
         # widths
         for col_num, col in enumerate(df2.columns):
-            if col in FIXED_WIDTHS:
-                width = FIXED_WIDTHS[col]
+            if col in self.FIXED_WIDTHS:
+                width = self.FIXED_WIDTHS[col]
             else:
                 max_len = max(df2[col].astype(str).map(len).max(), len(col)) + 2
-                width = min(max_len, MAX_COL_WIDTH)
-                width = max(width, MIN_COL_WIDTH)
+                width = min(max_len, self.MAX_COL_WIDTH)
+                width = max(width, self.MIN_COL_WIDTH)
             worksheet.set_column(col_num, col_num, width)
 
         # column indexes
@@ -405,29 +580,29 @@ class all_functions:
             for r in range(len(df2)):
                 row_id = df2.iloc[r]["ID"]
                 count = id_counts.get(row_id, 0)
-                id_fmt = id_green if count == 1 else id_yellow
+                id_fmt = self.id_green if count == 1 else self.id_yellow
 
                 for c in range(len(df2.columns)):
                     value = df2.iloc[r, c]
 
                     # blanks / NaN / Inf
                     if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))) or pd.isna(value):
-                        worksheet.write(r + 2, c, "", id_fmt if c == id_col_index else border_format)
+                        worksheet.write(r + 2, c, "", id_fmt if c == id_col_index else self.border_format)
                         continue
 
                     # 🔴 Highlight NO ID / NO_ID in For Ingestion
                     if ingestion_col_index is not None and c == ingestion_col_index:
                         vstr = str(value).strip()
                         if vstr in ("NO ID", "NO_ID"):
-                            worksheet.write(r + 2, c, vstr, no_id_red_format)
+                            worksheet.write(r + 2, c, vstr, self.no_id_red_format)
                         else:
-                            worksheet.write(r + 2, c, value, border_format)
+                            worksheet.write(r + 2, c, value, self.border_format)
                         continue
 
                     # 🔴 NEW: If IDENTIFIERS cell contains "|", highlight in red
                     col_name = df2.columns[c]
                     if col_name in identifier_cols_set and "|" in str(value):
-                        worksheet.write(r + 2, c, value, pipe_red_format)
+                        worksheet.write(r + 2, c, value, self.pipe_red_format)
                         continue
 
                     # NODE_IDENTIFIER hyperlink
@@ -435,10 +610,10 @@ class all_functions:
                         s = str(value).strip()
                         if s.startswith("entities/"):
                             node_id = s.replace("entities/", "", 1)
-                            url = RELTIO_BASE_URL + node_id
-                            worksheet.write_url(r + 2, c, url, link_format, node_id)
+                            url = self.RELTIO_BASE_URL + node_id
+                            worksheet.write_url(r + 2, c, url, self.link_format, node_id)
                         else:
-                            worksheet.write(r + 2, c, s, border_format)
+                            worksheet.write(r + 2, c, s, self.border_format)
                         continue
 
                     # TT_CODES hyperlink (IMDb)
@@ -446,59 +621,59 @@ class all_functions:
                         s = str(value).strip()
                         tt = extract_tt(s)
                         if tt:
-                            url = f"{IMDB_BASE_URL}{tt}/"
-                            worksheet.write_url(r + 2, c, url, link_format, tt)
+                            url = f"{self.IMDB_BASE_URL}{tt}/"
+                            worksheet.write_url(r + 2, c, url, self.link_format, tt)
                         else:
-                            worksheet.write(r + 2, c, s, border_format)
+                            worksheet.write(r + 2, c, s, self.border_format)
                         continue
 
                     # normal write
-                    worksheet.write(r + 2, c, value, id_fmt if c == id_col_index else border_format)
+                    worksheet.write(r + 2, c, value, id_fmt if c == id_col_index else self.border_format)
 
         else:
             for r in range(len(df2)):
                 for c in range(len(df2.columns)):
                     value = df2.iloc[r, c]
                     if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))) or pd.isna(value):
-                        worksheet.write(r + 2, c, "", border_format)
+                        worksheet.write(r + 2, c, "", self.border_format)
                         continue
 
                     # For Ingestion highlight
                     if ingestion_col_index is not None and c == ingestion_col_index:
                         vstr = str(value).strip()
-                        worksheet.write(r + 2, c, vstr, no_id_red_format if vstr in ("NO ID", "NO_ID") else border_format)
+                        worksheet.write(r + 2, c, vstr, self.no_id_red_format if vstr in ("NO ID", "NO_ID") else self.border_format)
                         continue
 
                     # IDENTIFIERS pipe highlight
                     col_name = df2.columns[c]
                     if col_name in identifier_cols_set and "|" in str(value):
-                        worksheet.write(r + 2, c, value, pipe_red_format)
+                        worksheet.write(r + 2, c, value, self.pipe_red_format)
                         continue
 
-                    worksheet.write(r + 2, c, value, border_format)
+                    worksheet.write(r + 2, c, value, self.border_format)
 
         return df2
 
     def format_no_match(self,df, sheet_name):
-        worksheet = workbook.add_worksheet(sheet_name)
-        writer.sheets[sheet_name] = worksheet
+        worksheet = self.workbook.add_worksheet(sheet_name)
+        self.writer.sheets[sheet_name] = worksheet
 
         df_nm = df.copy()
-        df_nm = self.convert_columns_try_number_preserve_decimals(df_nm, NUM_COERCE_COLS)
+        df_nm = self.convert_columns_try_number_preserve_decimals(df_nm, self.NUM_COERCE_COLS)
 
         for col_num, col_name in enumerate(df_nm.columns):
-            worksheet.write(0, col_num, col_name, header_format)
+            worksheet.write(0, col_num, col_name, self.header_format)
 
         for col_num, col in enumerate(df_nm.columns):
             max_len = max(df_nm[col].astype(str).map(len).max(), len(col)) + 2
-            width = min(max_len, MAX_COL_WIDTH)
-            width = max(width, MIN_COL_WIDTH)
+            width = min(max_len, self.MAX_COL_WIDTH)
+            width = max(width, self.MIN_COL_WIDTH)
             worksheet.set_column(col_num, col_num, width)
 
         for r in range(len(df_nm)):
             for c in range(len(df_nm.columns)):
                 value = df_nm.iloc[r, c]
                 if value is None or (isinstance(value, float) and (math.isnan(value) or math.isinf(value))) or pd.isna(value):
-                    worksheet.write(r + 1, c, "", border_format)
+                    worksheet.write(r + 1, c, "", self.border_format)
                 else:
-                    worksheet.write(r + 1, c, value, border_format)
+                    worksheet.write(r + 1, c, value, self.border_format)
