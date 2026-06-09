@@ -6,6 +6,11 @@ import numpy as np
 import pandas as pd
 from sentence_transformers import SentenceTransformer, CrossEncoder, util
 import unicodedata
+import tkinter as tk
+from tkinter import filedialog
+import os
+import shutil
+
 
 
 class all_functions:
@@ -191,7 +196,38 @@ class all_functions:
         
         return title
 
+    @staticmethod
+    def select_output_folder():
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        root.update()
 
+        print("Select folder to save output files...")
+        folder_path = filedialog.askdirectory(title="Select folder to save output files")
+        root.destroy()
+
+        if not folder_path:
+            print("No folder selected!")
+            return None
+
+        # ✅ Clear folder contents
+        for item in os.listdir(folder_path):
+            item_path = os.path.join(folder_path, item)
+
+            try:
+                if os.path.isfile(item_path) or os.path.islink(item_path):
+                    os.remove(item_path)   # delete file
+                elif os.path.isdir(item_path):
+                    shutil.rmtree(item_path)  # delete folder
+            except Exception as e:
+                print(f"❌ Failed to delete {item_path}: {e}")
+
+        print("✅ Folder cleaned successfully")
+        print("Selected Output Folder:", folder_path)
+
+        return folder_path
+    
     @staticmethod
     def genric_merger(title, series_title, season_number, episode_number):
         """Generates a merged title based on the provided information."""
