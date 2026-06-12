@@ -17,6 +17,7 @@ __pycache__/
 *.csv
 *.xlsx
 Formula.txt
+pytest_use_cases.txt
 
 # Optional specific ignores
 Translator.ipynb
