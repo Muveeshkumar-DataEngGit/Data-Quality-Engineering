@@ -159,19 +159,47 @@ class all_functions:
         self.MIN_COL_WIDTH = 10
         self.MAX_COL_WIDTH = 60
 
-    
     @staticmethod
     def split_aka(title):
         if pd.isna(title):
             return [title]
-        
-        parts = re.split(r'\s*(?:\s/\s|\bAKA\b)\s*', title, flags=re.IGNORECASE)
+
+        title = str(title).strip()
+
+        result = []
+
+        # ✅ Extract AKA content inside parentheses anywhere in string
+        aka_match = re.search(r'\(\s*AKA\.?\s*(.*?)\)', title, flags=re.IGNORECASE)
+
+        if aka_match:
+            aka_part = aka_match.group(1)
+
+            # Split aliases
+            aka_list = re.split(r'[,/]', aka_part)
+            aka_list = [x.strip() for x in aka_list if x.strip()]
+
+            # Remove the (AKA...) part from main title
+            main_title = re.sub(r'\(\s*AKA\.?.*?\)', '', title, flags=re.IGNORECASE).strip()
+
+            # Now also split remaining title by '/'
+            main_parts = re.split(r'\s*/\s*', main_title)
+            main_parts = [p.strip() for p in main_parts if p.strip()]
+
+            result.extend(main_parts)
+            result.extend(aka_list)
+
+            return result
+
+        # ✅ fallback logic
+        parts = re.split(r'\s*(?:/\s*|\bAKA\b)\s*', title, flags=re.IGNORECASE)
         return [p.strip() for p in parts if p.strip()]
     
     @staticmethod
     def normalize_title(title):
         if pd.isna(title):
             return ""
+        # Trim space:
+        title = title.strip()
         
         # 1️⃣ Normalize Unicode (NFKD separates accents)
         title = unicodedata.normalize('NFKD', str(title))
@@ -457,7 +485,18 @@ class all_functions:
     @staticmethod
     def top_n_per_id(df, id_col, score_col, n):
         df = df.sort_values([id_col, score_col], ascending=[True, False])
-        return df.groupby(id_col, as_index=False).head(n).reset_index(drop=True)
+
+        def filter_group(group):
+            high_score = group[group[score_col] >= 90]
+            if not high_score.empty:
+                return high_score
+            return group.head(n)
+
+        return (
+            df.groupby(id_col, group_keys=False)
+            .apply(filter_group)
+            .reset_index(drop=True)
+        )
     
     @staticmethod
     def flatten_groups(groups):
