@@ -1,5 +1,6 @@
 import pytest
 import pandas as pd
+from unittest.mock import patch
 from Packages.functions import all_functions
 smart_title_matching_functions=all_functions()
 
@@ -88,7 +89,7 @@ class TestNormalizeTitles:
         (None, ""),
     ])
     def test_normalize_title(self,title, output):
-        assert all_functions.normalize_title(title) == output, f"Failed for: {title}"
+        assert smart_title_matching_functions.normalize_title(title) == output, f"Failed for: {title}"
 
 
 class TestGenricMerger:
@@ -151,7 +152,7 @@ class TestGenricMerger:
 
     ])
     def test_genric_merger(self,title, series_title, season_number, episode_number, expected):
-        assert all_functions.genric_merger(
+        assert smart_title_matching_functions.genric_merger(
             title, series_title, season_number, episode_number
         ) == expected, f"Failed for: {title}, {series_title}, {season_number}, {episode_number}"
 
@@ -245,10 +246,21 @@ class TestTopnperID:
 
     ])
     def test_top_n_per_id(self,data, expected):
-        result = all_functions.top_n_per_id(data, "id", "score", n=3)
+        result = smart_title_matching_functions.top_n_per_id(data, "id", "score", n=3)
 
         # Reset index for clean comparison
         result = result.reset_index(drop=True)
         expected = expected.reset_index(drop=True)
 
         pd.testing.assert_frame_equal(result, expected)
+
+class TestgetSnowflakeConnection:
+
+    @patch("snowflake.connector.connect")
+    def test_connection_failure(self, mock_connect):
+        mock_connect.side_effect = Exception("Connection failed")
+
+        with pytest.raises(Exception) as exc:
+            smart_title_matching_functions.get_connection()
+
+        assert "Connection failed" in str(exc.value)
