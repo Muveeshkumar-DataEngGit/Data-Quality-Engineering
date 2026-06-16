@@ -3,6 +3,7 @@ pandas>=2.2,<2.3
 numpy>=1.26
 openpyxl
 xlsxwriter
+pytest
 
 # Fuzzy & semantic matching
 rapidfuzz>=3.9,<4.0
