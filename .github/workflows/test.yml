@@ -2,9 +2,9 @@ name: Run Tests
 
 on:
   push:
-    branches: [ main, develop ]   # triggers on commit
+    branches: [project_management]   # triggers on commit
   pull_request:
-    branches: [ main, develop ]   # triggers on PR
+    branches: [project_management]   # triggers on PR
 
 jobs:
   test:
