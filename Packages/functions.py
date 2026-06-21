@@ -10,8 +10,17 @@ import tkinter as tk
 from tkinter import filedialog
 import os
 import shutil
+import subprocess
+import sys
+import logging
+import torch
 
-
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+f = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+fh = logging.FileHandler('Smart.log', mode='w')   # ✅ overwrite file
+fh.setFormatter(f)
+logger.addHandler(fh)
 
 class all_functions:
     def __init__(self):
@@ -223,6 +232,68 @@ class all_functions:
         title = " ".join(title.split())
         
         return title
+    
+    @staticmethod
+    def open_excel_file(path):
+        try:
+            if sys.platform.startswith("win"):
+                os.startfile(path)
+            elif sys.platform == "darwin":
+                subprocess.call(["open", path])
+            else:
+                subprocess.call(["xdg-open", path])
+        except Exception as e:
+            logger.warning(f"Could not open Excel file automatically: {e}")
+
+    @staticmethod
+    def write_series_selection_file(df, output_path):
+        df = df.copy()
+
+        if "Select_Series" not in df.columns:
+            df["Select_Series"] = "No"
+
+        with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
+            df.to_excel(writer, index=False, sheet_name="Series match")
+
+            workbook = writer.book
+            worksheet = writer.sheets["Series match"]
+
+            header_format = workbook.add_format({
+                "bold": True,
+                "bg_color": "#D9EAF7",
+                "border": 1
+            })
+
+            for col_num, value in enumerate(df.columns.values):
+                worksheet.write(0, col_num, value, header_format)
+                worksheet.set_column(col_num, col_num, 22)
+
+            select_col_idx = df.columns.get_loc("Select_Series")
+
+            worksheet.data_validation(
+                1,
+                select_col_idx,
+                max(len(df), 1),
+                select_col_idx,
+                {
+                    "validate": "list",
+                    "source": ["Yes", "No"],
+                    "input_title": "Select Series",
+                    "input_message": "Choose Yes if this is the correct Series match.",
+                    "error_title": "Invalid value",
+                    "error_message": "Please select only Yes or No."
+                }
+            )
+
+            worksheet.freeze_panes(1, 0)
+            worksheet.autofilter(0, 0, len(df), len(df.columns) - 1)
+
+    @staticmethod
+    def rowwise_cosine(a, b):
+        a = torch.nn.functional.normalize(a, p=2, dim=1)
+        b = torch.nn.functional.normalize(b, p=2, dim=1)
+        return (a * b).sum(dim=1)
+
 
     @staticmethod
     def select_output_folder():
@@ -752,3 +823,236 @@ class all_functions:
                     worksheet.write(r + 1, c, "", self.border_format)
                 else:
                     worksheet.write(r + 1, c, value, self.border_format)
+
+    def score_series_matches(self,series_df, input_titles_0, model, cross_model):
+        series_df = series_df.copy()
+
+        if series_df.empty:
+            return series_df
+
+        series_df["ID"] = pd.to_numeric(series_df["ID"], errors="coerce").astype("Int64")
+
+        series_title_map = input_titles_0.set_index("Sno")["SERIES_TITLE"]
+        series_df["INPUT_SERIES_TITLE"] = series_df["ID"].map(series_title_map)
+
+        series_df["INPUT_SERIES_TITLE"] = series_df["INPUT_SERIES_TITLE"].fillna("")
+        series_df["ATOM_TITLE"] = series_df["ATOM_TITLE"].fillna("")
+
+        series_df["INPUT_SERIES_TITLE_NORM"] = series_df["INPUT_SERIES_TITLE"].apply(self.normalize_title
+        )
+        series_df["ATOM_TITLE_NORM"] = series_df["ATOM_TITLE"].apply(self.normalize_title
+        )
+
+        input_emb = model.encode(series_df["INPUT_SERIES_TITLE_NORM"].tolist(), convert_to_tensor=True)
+        atom_emb = model.encode(series_df["ATOM_TITLE_NORM"].tolist(), convert_to_tensor=True)
+        series_df["SEMANTIC_SCORE"] = (util.pairwise_cos_sim(input_emb, atom_emb).cpu().numpy() * 100)
+
+
+        series_df["SEMANTIC_SCORE"] = (util.pairwise_cos_sim(input_emb, atom_emb).cpu().numpy() * 100)
+
+        series_df = self.apply_cross_encoder(
+            series_df,
+            "INPUT_SERIES_TITLE_NORM",
+            "ATOM_TITLE_NORM",
+            "SEMANTIC_SCORE",
+            "CROSS_SCORE",
+            cross_model
+        )
+
+        series_df["FINAL_MATCH_RESULT"] = series_df.apply(
+            lambda r: self.final_decision(
+                r["INPUT_SERIES_TITLE_NORM"],
+                r["ATOM_TITLE_NORM"],
+                r["SEMANTIC_SCORE"],
+                r["CROSS_SCORE"]
+            ),
+            axis=1
+        )
+
+        series_df["SEMANTIC_SCORE"] = series_df["SEMANTIC_SCORE"].round(1)
+
+        series_df = series_df.drop(
+            columns=["INPUT_SERIES_TITLE_NORM", "ATOM_TITLE_NORM"],
+            errors="ignore"
+        )
+
+        series_df["FINAL_SCORE"] = series_df["SEMANTIC_SCORE"]
+        series_df["INPUT_TITLE"] = series_df["INPUT_SERIES_TITLE"]
+        series_df["MATCH_LEVEL"] = "Series"
+
+        return series_df
+
+
+    def score_child_matches(self,child_df, input_titles_0, model, cross_model):
+        child_df = child_df.copy()
+
+        if child_df.empty:
+            return child_df
+
+        child_df["ID"] = pd.to_numeric(child_df["ID"], errors="coerce").astype("Int64")
+
+        input_titles_0 = input_titles_0.copy()
+
+        
+        if "MATCH_TITLE_RAW" not in input_titles_0.columns:
+            logger.error("MATCH_TITLE_RAW column missing from INPUT_TITLES_0")
+            
+        input_series_map = input_titles_0.set_index("Sno")["SERIES_TITLE"]
+        input_match_title_map = input_titles_0.set_index("Sno")["MATCH_TITLE_RAW"]
+
+        child_df["SERIES_TITLE"] = child_df["ID"].map(input_series_map)
+        child_df["INPUT_TITLE"] = child_df["ID"].map(input_match_title_map)
+
+        for c in ["PARENT_TITLE", "SERIES_TITLE", "INPUT_TITLE", "ATOM_TITLE"]:
+            if c not in child_df.columns:
+                child_df[c] = ""
+            child_df[c] = child_df[c].fillna("").astype(str)
+
+        child_df["SERIES_TITLE_NORM"] = child_df["SERIES_TITLE"].apply(
+            self.normalize_title
+        )
+        child_df["PARENT_TITLE_NORM"] = child_df["PARENT_TITLE"].apply(
+            self.normalize_title
+        )
+        child_df["INPUT_TITLE_NORM"] = child_df["INPUT_TITLE"].apply(
+            self.normalize_title
+        )
+        child_df["ATOM_TITLE_NORM"] = child_df["ATOM_TITLE"].apply(
+            self.normalize_title
+        )
+
+        series_emb = model.encode(
+            child_df["SERIES_TITLE_NORM"].tolist(),
+            convert_to_tensor=True
+        )
+        parent_emb = model.encode(
+            child_df["PARENT_TITLE_NORM"].tolist(),
+            convert_to_tensor=True
+        )
+
+        child_df["SEMANTIC_SCORE_0"] = (util.pairwise_cos_sim(series_emb, parent_emb).cpu().numpy() * 100)
+
+        input_emb = model.encode(
+            child_df["INPUT_TITLE_NORM"].tolist(),
+            convert_to_tensor=True
+        )
+        atom_emb = model.encode(
+            child_df["ATOM_TITLE_NORM"].tolist(),
+            convert_to_tensor=True
+        )
+
+        child_df["SEMANTIC_SCORE_1"] = (util.pairwise_cos_sim(input_emb, atom_emb).cpu().numpy() * 100)
+
+
+        child_df = self.apply_cross_encoder(
+            child_df,
+            "SERIES_TITLE_NORM",
+            "PARENT_TITLE_NORM",
+            "SEMANTIC_SCORE_0",
+            "CROSS_SCORE_0",
+            cross_model,
+            75,
+            88
+        )
+
+        child_df = self.apply_cross_encoder(
+            child_df,
+            "INPUT_TITLE_NORM",
+            "ATOM_TITLE_NORM",
+            "SEMANTIC_SCORE_1",
+            "CROSS_SCORE_1",
+            cross_model,
+            75,
+            88
+        )
+
+        child_df["MATCH_RESULT_0"] = child_df.apply(
+            lambda row: self.final_decision(
+                row["SERIES_TITLE_NORM"],
+                row["PARENT_TITLE_NORM"],
+                row["SEMANTIC_SCORE_0"],
+                row.get("CROSS_SCORE_0", row["SEMANTIC_SCORE_0"])
+            ),
+            axis=1
+        )
+
+        child_df["MATCH_RESULT_1"] = child_df.apply(
+            lambda row: self.final_decision(
+                row["INPUT_TITLE_NORM"],
+                row["ATOM_TITLE_NORM"],
+                row["SEMANTIC_SCORE_1"],
+                row.get("CROSS_SCORE_1", row["SEMANTIC_SCORE_1"])
+            ),
+            axis=1
+        )
+
+        child_df["EXTRA_WORDS_0"] = child_df.apply(
+            lambda row: self.extra_word_ratio(
+                row["SERIES_TITLE_NORM"],
+                row["PARENT_TITLE_NORM"]
+            ),
+            axis=1
+        )
+
+        child_df["EXTRA_WORDS_1"] = child_df.apply(
+            lambda row: self.extra_word_ratio(
+                row["INPUT_TITLE_NORM"],
+                row["ATOM_TITLE_NORM"]
+            ),
+            axis=1
+        )
+
+        child_df["FINAL_MATCH_RESULT"] = child_df.apply(
+            self.combined_match_logic,
+            axis=1
+        )
+
+        child_df["SEMANTIC_SCORE_0"] = child_df["SEMANTIC_SCORE_0"].round(1)
+        child_df["SEMANTIC_SCORE_1"] = child_df["SEMANTIC_SCORE_1"].round(1)
+
+        child_df = child_df.drop(
+            columns=[
+                "INPUT_TITLE_NORM",
+                "ATOM_TITLE_NORM",
+                "PARENT_TITLE_NORM",
+                "SERIES_TITLE_NORM"
+            ],
+            errors="ignore"
+        )
+
+        child_df["FINAL_SCORE"] = child_df["SEMANTIC_SCORE_1"]
+
+        return child_df
+
+    @staticmethod
+    def filter_children_by_selected_series(child_df, selected_parent_ids):
+        child_df = child_df.copy()
+
+        if child_df.empty:
+            return child_df
+
+        if "PARENT_ENTITY" not in child_df.columns:
+            return child_df
+
+        if not selected_parent_ids:
+            return child_df
+
+        selected_parent_ids = set(str(x) for x in selected_parent_ids if pd.notna(x))
+
+        child_df["PARENT_ENTITY_STR"] = child_df["PARENT_ENTITY"].fillna("").astype(str)
+
+        scoped = child_df[
+            child_df["PARENT_ENTITY_STR"].isin(selected_parent_ids)
+        ].copy()
+
+        ids_with_scoped_candidates = set(scoped["ID"].dropna().unique())
+
+        fallback = child_df[
+            (~child_df["ID"].isin(ids_with_scoped_candidates))
+            & (~child_df["PARENT_ENTITY_STR"].isin(selected_parent_ids))
+        ].copy()
+
+        final_child_df = pd.concat([scoped, fallback], ignore_index=True, sort=False)
+        final_child_df = final_child_df.drop(columns=["PARENT_ENTITY_STR"], errors="ignore")
+
+        return final_child_df
