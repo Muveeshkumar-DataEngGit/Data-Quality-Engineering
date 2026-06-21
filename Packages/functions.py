@@ -13,6 +13,7 @@ from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.utils import get_column_letter
 from sentence_transformers import CrossEncoder
 import shutil
+import re
 
 
 class initial_class:
@@ -1062,7 +1063,8 @@ class matching_pipeline(load_and_match):
         if en == "yes":
             preferred_cols = [
                 "Synopsis (full)", "Synopsis (log line)", "Synopsis (180)",
-                "Synopsis (60)","Synopsis (60)_wb2b","Synopsis (full)_wb2b", "description-400", "listings-description",
+                "Synopsis (60)", "Synopsis (60)_wb2b", "Synopsis (full)_wb2b",
+                "description-400", "listings-description",
                 "long-description", "main-description", "short-description"
             ]
         else:
@@ -1075,22 +1077,32 @@ class matching_pipeline(load_and_match):
         output = []
 
         for _, row in df.iterrows():
-            values = {c: str(row[c]).strip() for c in cols if pd.notna(row[c])}
-            valid = {c: v for c, v in values.items() if 0 < len(v) <= target}
+            # Collect valid non-null values
+            values = {
+                c: str(row[c]).strip()
+                for c in cols
+                if pd.notna(row[c]) and str(row[c]).strip()
+            }
+
+            # ✅ Strict filter: ONLY values within limit
+            valid = [v for v in values.values() if 0 < len(v) <= target]
 
             if valid:
-                output.append(max(valid.values(), key=len))
+                # pick the longest within limit (best utilization)
+                output.append(max(valid, key=len))
             else:
-                non_empty = [v for v in values.values() if v]
-                output.append(min(non_empty, key=len) if non_empty else "")
+                # ❌ STRICT: no fallback allowed
+                output.append("")
 
         return output
 
-
+   
     @staticmethod
-    def format_sheet_openpyxl(ws):
+    def format_sheet_openpyxl(ws, short, long, too_long):
         """
-        Apply header formatting, borders, and auto column width
+        Apply header formatting, borders, auto width,
+        and highlight invalid synopsis cells dynamically
+        based on column header (Character Limit)
         """
 
         # =========================
@@ -1107,21 +1119,52 @@ class matching_pipeline(load_and_match):
             bottom=Side(style="thin")
         )
 
+        # 🔴 Highlight style
+        error_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+
         # =========================
         # 📌 HEADER FORMATTING
         # =========================
-        for cell in ws[1]:  # first row
+        for cell in ws[1]:
             cell.font = header_font
             cell.fill = header_fill
             cell.alignment = header_alignment
             cell.border = border
 
         # =========================
-        # 📌 APPLY BORDER TO ALL CELLS
+        # 📌 IDENTIFY VALIDATION COLUMNS DYNAMICALLY
+        # =========================
+        validation_columns = {}
+
+        for cell in ws[1]:
+            header = str(cell.value).strip() if cell.value else ""
+
+            # Match headers ending with "Character Limit)"
+            if header.endswith("Character Limit)"):
+                # Extract number inside ()
+                match = re.search(r"\((\d+)\s*Character Limit\)", header)
+                if match:
+                    limit = int(match.group(1))
+                    col_letter = get_column_letter(cell.column)
+                    validation_columns[col_letter] = limit
+
+        # =========================
+        # 📌 APPLY BORDER + VALIDATION
         # =========================
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 cell.border = border
+
+                col_letter = get_column_letter(cell.column)
+
+                # Apply validation only to detected columns
+                if col_letter in validation_columns:
+                    limit = validation_columns[col_letter]
+                    value = str(cell.value).strip() if cell.value is not None else ""
+
+                    # 🔴 Highlight if empty OR exceeds limit
+                    if (not value) or (len(value) > limit):
+                        cell.fill = error_fill
 
         # =========================
         # 📌 AUTO COLUMN WIDTH
@@ -1134,13 +1177,10 @@ class matching_pipeline(load_and_match):
                 try:
                     if cell.value:
                         max_length = max(max_length, len(str(cell.value)))
-                except:
+                except Exception:
                     pass
 
-            adjusted_width = min(max_length + 2, 50)  # cap at 50
-            ws.column_dimensions[col_letter].width = adjusted_width
-
-
+            ws.column_dimensions[col_letter].width = min(max_length + 2, 50)
     # =========================
     # HELPER FUNCTIONS
     # =========================
