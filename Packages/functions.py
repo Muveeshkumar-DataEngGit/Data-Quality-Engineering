@@ -247,46 +247,491 @@ class all_functions:
 
     @staticmethod
     def write_series_selection_file(df, output_path):
+        import pandas as pd
+        import numpy as np
+        import re
+        import math
+
         df = df.copy()
 
+        # -------------------------------------------------
+        # 1) Ensure Select_Series column exists
+        # -------------------------------------------------
         if "Select_Series" not in df.columns:
             df["Select_Series"] = "No"
 
+        # -------------------------------------------------
+        # 2) Keep original final-score column names
+        # DO NOT rename FINAL_SCORE / FINAL_MATCH_RESULT
+        # because your later code uses these names.
+        # -------------------------------------------------
+
+        # -------------------------------------------------
+        # 3) Add For Ingestion column same like final output
+        # -------------------------------------------------
+        ingestion_priority = [
+            ("MPM_NUMBER", "MPM_Number"),
+            ("PI_UUID", "PI_UUID"),
+            ("PROPERTY_ID", "Property_ID"),
+            ("HBO_ID", "HBO_ID"),
+            ("META_ID", "Meta_ID"),
+            ("TURNER_TITLEID", "Turner_TitleID"),
+            ("MMS3_MCODE", "MMS3_MCode"),
+            ("DASH_TITLE_ID", "DASH_Title_ID"),
+            ("ALEPH_ID", "Aleph_ID"),
+            ("IBROADCAST_EMEA_ID", "iBroadcast_EMEA_ID"),
+            ("IBROADCAST_APAC_ID", "iBroadcast_APAC_ID"),
+        ]
+
+        conds = []
+        labels = []
+
+        for col, label in ingestion_priority:
+            if col in df.columns:
+                s = df[col].astype("string").str.strip()
+                cond = (
+                    s.notna()
+                    & (s != "")
+                    & (~s.str.contains(r"\|", na=False))
+                )
+                conds.append(cond.to_numpy())
+                labels.append(label)
+
+        df["For Ingestion"] = np.select(conds, labels, default="NO ID") if conds else "NO ID"
+
+        # -------------------------------------------------
+        # 4) Correct preferred column order for Series Selection
+        # -------------------------------------------------
+        preferred_columns = [
+            "ID",
+            "MATCH_LEVEL",
+            "INPUT_TITLE",
+            "ATOM_TITLE",
+            "INPUT_YEAR",
+            "YEARS",
+            "TT_CODES",
+
+            "IP_TYPE",
+            "NODE_IDENTIFIER",
+            "CHILDREN_STATUS",
+
+            "FINAL_SCORE",
+            "FINAL_MATCH_RESULT",
+
+            "MPM_NUMBER",
+            "PI_UUID",
+            "PROPERTY_ID",
+            "HBO_ID",
+            "META_ID",
+            "TURNER_TITLEID",
+            "MMS3_MCODE",
+            "DASH_TITLE_ID",
+            "ALEPH_ID",
+            "IBROADCAST_EMEA_ID",
+            "IBROADCAST_APAC_ID",
+            "For Ingestion",
+
+            "Select_Series"
+        ]
+
+        existing_preferred = [c for c in preferred_columns if c in df.columns]
+        remaining_columns = [c for c in df.columns if c not in existing_preferred]
+
+        df = df[existing_preferred + remaining_columns]
+
+        # -------------------------------------------------
+        # 5) Numeric conversion same like final output
+        # -------------------------------------------------
+        num_cols = [
+            "PROPERTY_ID",
+            "HBO_ID",
+            "META_ID",
+            "TURNER_TITLEID",
+            "MMS3_MCODE",
+            "DASH_TITLE_ID",
+            "ALEPH_ID",
+            "IBROADCAST_EMEA_ID",
+            "IBROADCAST_APAC_ID",
+            "YEARS",
+            "MPM_NUMBER",
+        ]
+
+        def try_number_preserve_decimals(x):
+            if x is None or pd.isna(x):
+                return ""
+
+            if isinstance(x, (int, np.integer)):
+                return int(x)
+
+            if isinstance(x, (float, np.floating)):
+                if math.isnan(x) or math.isinf(x):
+                    return ""
+                return int(x) if float(x).is_integer() else float(x)
+
+            s = str(x).strip()
+            if s == "":
+                return ""
+
+            s_clean = s.replace(",", "")
+
+            if re.fullmatch(r"[+-]?\d+", s_clean):
+                try:
+                    return int(s_clean)
+                except Exception:
+                    return x
+
+            if re.fullmatch(r"[+-]?\d+\.\d+", s_clean):
+                try:
+                    f = float(s_clean)
+                    return int(f) if float(f).is_integer() else f
+                except Exception:
+                    return x
+
+            return x
+
+        for col in num_cols:
+            if col in df.columns:
+                df[col] = df[col].apply(try_number_preserve_decimals)
+
+        # -------------------------------------------------
+        # 6) Write Excel
+        # -------------------------------------------------
         with pd.ExcelWriter(output_path, engine="xlsxwriter") as writer:
-            df.to_excel(writer, index=False, sheet_name="Series match")
+            sheet_name = "Series match"
+
+            # row 0 = group headers
+            # row 1 = column headers
+            # row 2 onwards = data
+            df.to_excel(
+                writer,
+                index=False,
+                sheet_name=sheet_name,
+                startrow=1
+            )
 
             workbook = writer.book
-            worksheet = writer.sheets["Series match"]
+            worksheet = writer.sheets[sheet_name]
+
+            # -------------------------------------------------
+            # 7) Formats same like final output
+            # -------------------------------------------------
+            group_band_format = workbook.add_format({
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "border": 1,
+                "bg_color": "#279516",
+                "font_color": "#FFFFFF"
+            })
 
             header_format = workbook.add_format({
                 "bold": True,
-                "bg_color": "#D9EAF7",
+                "text_wrap": False,
+                "valign": "middle",
+                "align": "center",
+                "border": 1,
+                "bg_color": "#97F8A9"
+            })
+
+            border_format = workbook.add_format({
                 "border": 1
             })
 
-            for col_num, value in enumerate(df.columns.values):
-                worksheet.write(0, col_num, value, header_format)
-                worksheet.set_column(col_num, col_num, 22)
+            id_green = workbook.add_format({
+                "bg_color": "#3BF160",
+                "border": 1,
+                "bold": True
+            })
 
-            select_col_idx = df.columns.get_loc("Select_Series")
+            id_yellow = workbook.add_format({
+                "bg_color": "#FCFF34",
+                "border": 1,
+                "bold": True
+            })
 
-            worksheet.data_validation(
-                1,
-                select_col_idx,
-                max(len(df), 1),
-                select_col_idx,
-                {
-                    "validate": "list",
-                    "source": ["Yes", "No"],
-                    "input_title": "Select Series",
-                    "input_message": "Choose Yes if this is the correct Series match.",
-                    "error_title": "Invalid value",
-                    "error_message": "Please select only Yes or No."
-                }
-            )
+            link_format = workbook.add_format({
+                "border": 1,
+                "font_color": "#0563C1",
+                "underline": 1
+            })
 
-            worksheet.freeze_panes(1, 0)
-            worksheet.autofilter(0, 0, len(df), len(df.columns) - 1)
+            no_id_red_format = workbook.add_format({
+                "border": 1,
+                "font_color": "#FF0000",
+                "bold": True
+            })
+
+            pipe_red_format = workbook.add_format({
+                "border": 1,
+                "font_color": "#9C0006",
+                "bg_color": "#FFC7CE",
+                "bold": True
+            })
+
+            select_format = workbook.add_format({
+                "border": 1,
+                "bg_color": "#FFF2CC"
+            })
+
+            # -------------------------------------------------
+            # 8) Correct group rules for Series Selection
+            # -------------------------------------------------
+            groups = [
+                ("MATCHED OUTPUT", [
+                    "ID",
+                    "MATCH_LEVEL",
+                    "INPUT_TITLE",
+                    "ATOM_TITLE",
+                    "INPUT_YEAR",
+                    "YEARS",
+                    "TT_CODES"
+                ]),
+                ("SERIES INFO", [
+                    "IP_TYPE",
+                    "NODE_IDENTIFIER",
+                    "CHILDREN_STATUS"
+                ]),
+                ("SCORES", [
+                    "FINAL_SCORE",
+                    "FINAL_MATCH_RESULT"
+                ]),
+                ("IDENTIFIERS", [
+                    "MPM_NUMBER",
+                    "PI_UUID",
+                    "PROPERTY_ID",
+                    "HBO_ID",
+                    "META_ID",
+                    "TURNER_TITLEID",
+                    "MMS3_MCODE",
+                    "DASH_TITLE_ID",
+                    "ALEPH_ID",
+                    "IBROADCAST_EMEA_ID",
+                    "IBROADCAST_APAC_ID",
+                    "For Ingestion"
+                ]),
+                ("USER SELECTION", [
+                    "Select_Series"
+                ])
+            ]
+
+            # -------------------------------------------------
+            # 9) First fill full group row
+            # -------------------------------------------------
+            for col_num in range(len(df.columns)):
+                worksheet.write_blank(0, col_num, None, group_band_format)
+
+            # Then merge group ranges
+            col_positions = {col: idx for idx, col in enumerate(df.columns)}
+
+            for group_name, group_cols in groups:
+                present_cols = [c for c in group_cols if c in df.columns]
+
+                if not present_cols:
+                    continue
+
+                start_col = col_positions[present_cols[0]]
+                end_col = col_positions[present_cols[-1]]
+
+                if start_col == end_col:
+                    worksheet.write(0, start_col, group_name, group_band_format)
+                else:
+                    worksheet.merge_range(
+                        0,
+                        start_col,
+                        0,
+                        end_col,
+                        group_name,
+                        group_band_format
+                    )
+
+            # -------------------------------------------------
+            # 10) Actual headers
+            # -------------------------------------------------
+            for col_num, col_name in enumerate(df.columns):
+                worksheet.write(1, col_num, col_name, header_format)
+
+            # -------------------------------------------------
+            # 11) Column indexes
+            # -------------------------------------------------
+            id_col_index = df.columns.get_loc("ID") if "ID" in df.columns else None
+            node_col_index = df.columns.get_loc("NODE_IDENTIFIER") if "NODE_IDENTIFIER" in df.columns else None
+            tt_col_index = df.columns.get_loc("TT_CODES") if "TT_CODES" in df.columns else None
+            ingestion_col_index = df.columns.get_loc("For Ingestion") if "For Ingestion" in df.columns else None
+
+            identifier_cols = {
+                "MPM_NUMBER",
+                "PI_UUID",
+                "PROPERTY_ID",
+                "HBO_ID",
+                "META_ID",
+                "TURNER_TITLEID",
+                "MMS3_MCODE",
+                "DASH_TITLE_ID",
+                "ALEPH_ID",
+                "IBROADCAST_EMEA_ID",
+                "IBROADCAST_APAC_ID",
+            }
+
+            reltio_base_url = "https://361.reltio.com/nui/RohAASgkA5WQGA9/profile?entityUri=entities%2F"
+            imdb_base_url = "https://www.imdb.com/title/"
+
+            def extract_tt(s):
+                if not s:
+                    return None
+                m = re.search(r"(tt\d+)", str(s), flags=re.IGNORECASE)
+                return m.group(1).lower() if m else None
+
+            # ID duplicate coloring same like final output
+            if "ID" in df.columns:
+                id_counts = df["ID"].value_counts(dropna=False).to_dict()
+            else:
+                id_counts = {}
+
+            # -------------------------------------------------
+            # 12) Write data rows with formatting
+            # -------------------------------------------------
+            for r in range(len(df)):
+                excel_row = r + 2
+
+                row_id = df.iloc[r]["ID"] if "ID" in df.columns else None
+                id_count = id_counts.get(row_id, 0)
+                current_id_format = id_green if id_count == 1 else id_yellow
+
+                for c, col_name in enumerate(df.columns):
+                    value = df.iloc[r, c]
+
+                    if value is None or pd.isna(value):
+                        value = ""
+
+                    value_str = str(value).strip()
+
+                    # ID highlight
+                    if id_col_index is not None and c == id_col_index:
+                        worksheet.write(excel_row, c, value, current_id_format)
+                        continue
+
+                    # Select_Series yellow
+                    if col_name == "Select_Series":
+                        worksheet.write(excel_row, c, value, select_format)
+                        continue
+
+                    # For Ingestion red NO ID
+                    if ingestion_col_index is not None and c == ingestion_col_index:
+                        if value_str.upper() in ["NO ID", "NO_ID"]:
+                            worksheet.write(excel_row, c, value_str, no_id_red_format)
+                        else:
+                            worksheet.write(excel_row, c, value, border_format)
+                        continue
+
+                    # Pipe highlight for identifiers
+                    if col_name in identifier_cols and "|" in value_str:
+                        worksheet.write(excel_row, c, value, pipe_red_format)
+                        continue
+
+                    # NODE_IDENTIFIER hyperlink
+                    if node_col_index is not None and c == node_col_index:
+                        if value_str:
+                            clean_entity = value_str.replace("entities/", "")
+                            worksheet.write_url(
+                                excel_row,
+                                c,
+                                reltio_base_url + clean_entity,
+                                link_format,
+                                string=value_str
+                            )
+                        else:
+                            worksheet.write(excel_row, c, "", border_format)
+                        continue
+
+                    # TT_CODES hyperlink
+                    if tt_col_index is not None and c == tt_col_index:
+                        tt = extract_tt(value_str)
+                        if tt:
+                            worksheet.write_url(
+                                excel_row,
+                                c,
+                                imdb_base_url + tt + "/",
+                                link_format,
+                                string=tt
+                            )
+                        else:
+                            worksheet.write(excel_row, c, value_str, border_format)
+                        continue
+
+                    # default
+                    worksheet.write(excel_row, c, value, border_format)
+
+            # -------------------------------------------------
+            # 13) Dropdown for Select_Series
+            # -------------------------------------------------
+            if "Select_Series" in df.columns:
+                select_col_idx = df.columns.get_loc("Select_Series")
+
+                worksheet.data_validation(
+                    2,
+                    select_col_idx,
+                    max(len(df) + 1, 2),
+                    select_col_idx,
+                    {
+                        "validate": "list",
+                        "source": ["Yes", "No"],
+                        "input_title": "Select Series",
+                        "input_message": "Choose Yes if this is the correct Series match.",
+                        "error_title": "Invalid value",
+                        "error_message": "Please select only Yes or No."
+                    }
+                )
+
+            # -------------------------------------------------
+            # 14) Widths same final style
+            # -------------------------------------------------
+            fixed_widths = {
+                "ID": 12,
+                "MATCH_LEVEL": 16,
+                "INPUT_TITLE": 38,
+                "ATOM_TITLE": 38,
+                "INPUT_YEAR": 14,
+                "YEARS": 14,
+                "TT_CODES": 16,
+                "IP_TYPE": 18,
+                "NODE_IDENTIFIER": 28,
+                "CHILDREN_STATUS": 35,
+                "FINAL_SCORE": 16,
+                "FINAL_MATCH_RESULT": 22,
+                "MPM_NUMBER": 16,
+                "PROPERTY_ID": 14,
+                "TURNER_TITLEID": 16,
+                "MMS3_MCODE": 16,
+                "For Ingestion": 18,
+                "Select_Series": 18,
+            }
+
+            min_width = 10
+            max_width = 60
+
+            for col_idx, col_name in enumerate(df.columns):
+                if col_name in fixed_widths:
+                    width = fixed_widths[col_name]
+                else:
+                    try:
+                        max_len = max(
+                            df[col_name].astype(str).map(len).max(),
+                            len(str(col_name))
+                        )
+                        width = min(max(max_len + 2, min_width), max_width)
+                    except Exception:
+                        width = 22
+
+                worksheet.set_column(col_idx, col_idx, width)
+
+            # -------------------------------------------------
+            # 15) Final sheet settings
+            # -------------------------------------------------
+            worksheet.freeze_panes(2, 0)
+            worksheet.autofilter(1, 0, len(df) + 1, len(df.columns) - 1)
+
+            worksheet.set_row(0, 24)
+            worksheet.set_row(1, 28)
 
     @staticmethod
     def rowwise_cosine(a, b):
