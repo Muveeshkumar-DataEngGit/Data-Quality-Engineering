@@ -34,44 +34,190 @@ class all_functions:
         # 1) Define column grouping rules (your requirement)
         # -----------------------------
         self.GROUPS = {
+
             "STANDALONE": [
-                ("MATCHED OUTPUT", ["ID","INPUT_TITLES","ATOM_TITLE","INPUT_YEAR","YEARS","TT_CODES"]),
-                ("STANDALONE INFO", ["IP_TYPE","NODE_IDENTIFIER"]),
-                ("PARENT INFO", ["PARENT_TITLE","PARENT_ENTITY","PARENT_MPM"]),
-                ("SCORES", ["SEMANTIC_SCORE","MATCH_RESULT"]),
-                ("IDENTIFIERS", ["MPM_NUMBER","PI_UUID","PROPERTY_ID","HBO_ID","META_ID","TURNER_TITLEID","MMS3_MCODE",
-                                "DASH_TITLE_ID","ALEPH_ID","IBROADCAST_EMEA_ID","IBROADCAST_APAC_ID",
-                                "For Ingestion"])
+                (
+                    "MATCHED OUTPUT",
+                    [
+                        "ID",
+                        "INPUT_TITLES",
+                        "ATOM_TITLE",
+                        "INPUT_YEAR",
+                        "YEARS",
+                        "TT_CODES",
+                    ]
+                ),
+
+                (
+                    "STANDALONE INFO",
+                    [
+                        "IP_TYPE",
+                        "NODE_IDENTIFIER",
+                        "LIBRARY_TITLE_FULL"
+                    ]
+                ),
+
+                (
+                    "PARENT INFO",
+                    [
+                        "PARENT_TITLE",
+                        "PARENT_ENTITY",
+                        "PARENT_MPM",
+                    ]
+                ),
+
+                (
+                    "SCORES",
+                    [
+                        "FINAL_SCORE",
+                        "SEMANTIC_SCORE",
+                        "MATCH_LEVEL",
+                        "CONFIDENCE",
+                        "FINAL_REASON",
+                        "MATCH_RANK",
+                        "MATCH_EVIDENCE",
+                    ]
+                ),
+
+                (
+                    "IDENTIFIERS",
+                    [
+                        "MPM_NUMBER",
+                        "PI_UUID",
+                        "PROPERTY_ID",
+                        "HBO_ID",
+                        "META_ID",
+                        "TURNER_TITLEID",
+                        "MMS3_MCODE",
+                        "DASH_TITLE_ID",
+                        "ALEPH_ID",
+                        "IBROADCAST_EMEA_ID",
+                        "IBROADCAST_APAC_ID",
+                        "For Ingestion",
+                    ]
+                ),
             ],
 
             "SERIES": [
-                ("MATCHED OUTPUT", ["ID","INPUT_TITLES","ATOM_TITLE","INPUT_YEAR","YEARS","TT_CODES"]),
-                ("SERIES INFO", ["IP_TYPE","NODE_IDENTIFIER","CHILDREN_STATUS"]),
-                ("SCORES", ["SEMANTIC_SCORE","MATCH_RESULT"]),
-                ("IDENTIFIERS", ["MPM_NUMBER","PI_UUID","HBO_ID","META_ID","TURNER_TITLEID","MMS3_MCODE",
-                                "DASH_TITLE_ID","ALEPH_ID","IBROADCAST_EMEA_ID","IBROADCAST_APAC_ID",
-                                "For Ingestion"])
+                (
+                    "MATCHED OUTPUT",
+                    [
+                        "ID",
+                        "INPUT_TITLES",
+                        "ATOM_TITLE",
+                        "INPUT_YEAR",
+                        "YEARS",
+                        "TT_CODES",
+                    ]
+                ),
+
+                (
+                    "SERIES INFO",
+                    [
+                        "IP_TYPE",
+                        "NODE_IDENTIFIER",
+                        "LIBRARY_TITLE_FULL",
+                        "CHILDREN_STATUS",
+                    ]
+                ),
+
+                (
+                    "SCORES",
+                    [
+                        "FINAL_SCORE",
+                        "SEMANTIC_SCORE",
+                        "MATCH_LEVEL",
+                        "CONFIDENCE",
+                        "FINAL_REASON",
+                        "MATCH_RANK",
+                        "MATCH_EVIDENCE",
+                    ]
+                ),
+
+                (
+                    "IDENTIFIERS",
+                    [
+                        "MPM_NUMBER",
+                        "PI_UUID",
+                        "HBO_ID",
+                        "META_ID",
+                        "TURNER_TITLEID",
+                        "MMS3_MCODE",
+                        "DASH_TITLE_ID",
+                        "ALEPH_ID",
+                        "IBROADCAST_EMEA_ID",
+                        "IBROADCAST_APAC_ID",
+                        "For Ingestion"
+                    ]
+                ),
             ],
 
-            "SEASON": [
-                ("MATCHED OUTPUT", ["ID","INPUT_TITLES","ATOM_TITLE","INPUT_YEAR","YEARS","TT_CODES"]),
-                ("SEASON INFO", ["IP_TYPE","NODE_IDENTIFIER","CHILDREN_STATUS"]),
-                ("PARENT INFO", ["PARENT_TITLE","PARENT_ENTITY","PARENT_MPM"]),
-                ("SCORES", ["SEMANTIC_SCORE","MATCH_RESULT"]),
-                ("IDENTIFIERS", ["MPM_NUMBER","PI_UUID","PROPERTY_ID","HBO_ID","META_ID","TURNER_TITLEID","MMS3_MCODE",
-                                "DASH_TITLE_ID","ALEPH_ID","IBROADCAST_EMEA_ID","IBROADCAST_APAC_ID",
-                                "For Ingestion"])
-            ],
+           "EPISODICS": [
 
-            "EPISODICS": [
-                ("MATCHED OUTPUT", ["ID","SERIES_TITLE","PARENT_TITLE","INPUT_TITLE","ATOM_TITLE","INPUT_YEAR","YEARS","TT_CODES"]),
-                ("EPISODE INFO", ["IP_TYPE","NODE_IDENTIFIER"]),
-                ("PARENT INFO", ["PARENT_ENTITY","PARENT_MPM"]),
-                ("SCORES", ["SEMANTIC_SCORE_1","FINAL_MATCH_RESULT"]),
-                ("IDENTIFIERS", ["MPM_NUMBER","PI_UUID","PROPERTY_ID","HBO_ID","META_ID","TURNER_TITLEID","MMS3_MCODE",
-                                "DASH_TITLE_ID","ALEPH_ID","IBROADCAST_EMEA_ID","IBROADCAST_APAC_ID",
-                                "For Ingestion"])
-            ]
+            (
+                "MATCHED OUTPUT",
+                [
+                    "ID",
+                    "SERIES_TITLE",
+                    "PARENT_TITLE",
+                    "INPUT_TITLE",
+                    "ATOM_TITLE",
+                    "INPUT_YEAR",
+                    "YEARS",
+                    "TT_CODES",
+                ]
+            ),
+
+            (
+                "CONTENT INFO",
+                [
+                    "IP_TYPE",
+                    "NODE_IDENTIFIER",
+                    "LIBRARY_TITLE_FULL"
+                ]
+            ),
+
+            (
+                "PARENT INFO",
+                [
+                    "PARENT_ENTITY",
+                    "PARENT_MPM",
+                    "CHILDREN_STATUS"
+                ]
+            ),
+
+            (
+                "SCORES",
+                [
+                    "FINAL_SCORE",
+                    "MATCH_LEVEL",
+                    "CONFIDENCE",
+                    "FINAL_REASON",
+                    "MATCH_RANK",
+                    "MATCH_EVIDENCE",
+                ]
+            ),
+
+            (
+                "IDENTIFIERS",
+                [
+                    "MPM_NUMBER",
+                    "MPM_PRODUCT_NUMBER",
+                    "PI_UUID",
+                    "PROPERTY_ID",
+                    "HBO_ID",
+                    "META_ID",
+                    "TURNER_TITLEID",
+                    "MMS3_MCODE",
+                    "DASH_TITLE_ID",
+                    "ALEPH_ID",
+                    "IBROADCAST_EMEA_ID",
+                    "IBROADCAST_APAC_ID",
+                    "For Ingestion",
+                ]
+            ),
+        ]
+
         }
 
         # ✅ Priority columns + EXACT output labels you want
@@ -125,6 +271,72 @@ class all_functions:
             "border": 1, "bg_color": "#279516", "font_color": "#FFFFFF"
         })
 
+        # Row 1 Group Header Colors
+        self.group_formats = {
+            "MATCHED OUTPUT": self.workbook.add_format({
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "border": 1,
+                "bg_color": "#4FC444",  # Blue
+                "font_color": "#000000"
+            }),
+
+            "STANDALONE INFO": self.workbook.add_format({
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "border": 1,
+                "bg_color": "#E8D90D",  # Green
+                "font_color": "#000000"
+            }),
+
+            "CONTENT INFO": self.workbook.add_format({
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "border": 1,
+                "bg_color": "#D4A796",
+                "font_color": "#FFFFFF"
+            }),
+
+            "SERIES INFO": self.workbook.add_format({
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "border": 1,
+                "bg_color": "#00FDF5",
+                "font_color": "#000000"
+            }),
+
+            "PARENT INFO": self.workbook.add_format({
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "border": 1,
+                "bg_color": "#ED7D31",  # Orange
+                "font_color": "#FFFFFF"
+            }),
+
+            "SCORES": self.workbook.add_format({
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "border": 1,
+                "bg_color": "#FFC000",  # Gold
+                "font_color": "#000000"
+            }),
+
+            "IDENTIFIERS": self.workbook.add_format({
+                "bold": True,
+                "align": "center",
+                "valign": "vcenter",
+                "border": 1,
+                "bg_color": "#C00000",  # Dark Red
+                "font_color": "#FFFFFF"
+            }),
+        }
+
         self.header_format_match = self.workbook.add_format({
             "bold": True,
             "text_wrap": False,
@@ -164,9 +376,223 @@ class all_functions:
             "PROPERTY_ID": 14,
             "TURNER_TITLEID": 14,
             "For Ingestion": 18,
-        }
+            "CONFIDENCE": 14,
+            "FINAL_REASON": 24,
+            "MATCH_RANK": 12,
+            "KEEP_RECOMMENDED": 18,
+            "MATCH_EVIDENCE": 45}
         self.MIN_COL_WIDTH = 10
         self.MAX_COL_WIDTH = 60
+    
+    @staticmethod
+    def extract_season_episode(title):
+
+        title = str(title)
+
+        # S5E09
+        m = re.search(
+            r'\bS(\d+)\s*E(\d+)\b',
+            title,
+            re.IGNORECASE
+        )
+
+        if m:
+            return int(m.group(1)), int(m.group(2))
+
+        # S5 Episode 09
+        m = re.search(
+            r'\bS(\d+)\s*(?:Episode|Ep|E)\s*(\d+)\b',
+            title,
+            re.IGNORECASE
+        )
+
+        if m:
+            return int(m.group(1)), int(m.group(2))
+
+        # Season 5 Episode 09
+        m = re.search(
+            r'Season\s*(\d+)\s*Episode\s*(\d+)',
+            title,
+            re.IGNORECASE
+        )
+
+        if m:
+            return int(m.group(1)), int(m.group(2))
+
+        # 509 => S5E09
+        m = re.search(r'\b(\d)(\d{2})\b', title)
+
+        if m:
+            return int(m.group(1)), int(m.group(2))
+
+        return None, None
+    
+    @staticmethod
+    def confidence_bucket(score):
+
+        if pd.isna(score):
+            return ""
+
+        if score >= 98:
+            return "Very High"
+
+        if score >= 95:
+            return "High"
+
+        if score >= 85:
+            return "Medium"
+
+        return "Low"
+    
+    @staticmethod
+    def get_match_reason(
+        result,
+        semantic_score,
+        cross_score=None,
+        aka=False,
+        numbers_pass=True,
+        parent_pass=True
+    ):
+
+        # hard failures first
+        if not numbers_pass:
+            return "NUMBER_MISMATCH"
+
+        if not parent_pass:
+            return "PARENT_MISMATCH"
+
+        if result == "Reject":
+
+            if aka:
+                return "AKA_REJECTED"
+
+            if semantic_score >= 85:
+                return "BUSINESS_RULE_REJECT"
+
+            return "LOW_SCORE_REJECT"
+
+        # accepted matches
+        if result == "Perfect Match":
+
+            if aka:
+                return "AKA_PERFECT_MATCH"
+
+            if semantic_score >= 97:
+                return "EXACT_TITLE_MATCH"
+
+            if semantic_score >= 95:
+                return "HIGH_SEMANTIC_MATCH"
+
+            return "CROSS_ENCODER_APPROVED"
+
+        if result == "Possible Match":
+
+            if aka:
+                return "AKA_POSSIBLE_MATCH"
+
+            if semantic_score >= 90:
+                return "HIGH_CONFIDENCE_REVIEW"
+
+            return "REVIEW_REQUIRED"
+
+        return "UNKNOWN"    
+    
+    @staticmethod
+    def build_match_evidence(row):
+
+        evidence = []
+
+        if "SEMANTIC_SCORE" in row.index and pd.notna(row["SEMANTIC_SCORE"]):
+            evidence.append(
+                f"Semantic={round(row['SEMANTIC_SCORE'],1)}"
+            )
+
+        if "FINAL_SCORE" in row.index and pd.notna(row["FINAL_SCORE"]):
+            evidence.append(
+                f"Final={round(row['FINAL_SCORE'],1)}"
+            )
+
+        if "CROSS_SCORE" in row.index and pd.notna(row["CROSS_SCORE"]):
+            evidence.append(
+                f"Cross={round(row['CROSS_SCORE'],1)}"
+            )
+
+        if "MATCH_RESULT" in row.index:
+            evidence.append(
+                f"Decision={row['MATCH_RESULT']}"
+            )
+
+        if "FINAL_MATCH_RESULT" in row.index:
+            evidence.append(
+                f"Decision={row['FINAL_MATCH_RESULT']}"
+            )
+
+        return " | ".join(evidence)
+    
+    @staticmethod
+    def add_match_ranking(df, id_col, score_col):
+
+        if df.empty:
+            return df
+
+        df = df.copy()
+
+        df = df.sort_values(
+            [id_col, score_col],
+            ascending=[True, False]
+        )
+
+        df["MATCH_RANK"] = (
+            df.groupby(id_col)
+            .cumcount() + 1
+        )
+
+        df["KEEP_RECOMMENDED"] = np.where(
+            df["MATCH_RANK"] == 1,
+            "Yes",
+            "No"
+        )
+
+        return df
+    
+    def add_explainability_columns(
+        self,
+        df,
+        score_col,
+        result_col
+    ):
+
+        if df.empty:
+            return df
+
+        df = df.copy()
+
+        df["CONFIDENCE"] = (
+            df[score_col]
+            .apply(self.confidence_bucket)
+        )
+
+        df["FINAL_REASON"] = df.apply(
+            lambda r:
+            self.get_match_reason(
+                r[result_col],
+                r[score_col],
+                r.get("CROSS_SCORE"),
+                "AKA" in str(
+                    r.get("INPUT_TITLE", "")
+                ).upper()
+            ),
+            axis=1
+        )
+
+        df["MATCH_EVIDENCE"] = (
+            df.apply(
+                self.build_match_evidence,
+                axis=1
+            )
+        )
+
+        return df
 
     @staticmethod
     def split_aka(title):
@@ -313,10 +739,16 @@ class all_functions:
 
             "IP_TYPE",
             "NODE_IDENTIFIER",
+            "LIBRARY_TITLE_FULL",
             "CHILDREN_STATUS",
 
             "FINAL_SCORE",
-            "FINAL_MATCH_RESULT",
+            "SEMANTIC_SCORE",
+            "MATCH_LEVEL",
+            "CONFIDENCE",
+            "FINAL_REASON",
+            "MATCH_RANK",
+            "MATCH_EVIDENCE",
 
             "MPM_NUMBER",
             "PI_UUID",
@@ -476,6 +908,56 @@ class all_functions:
             # -------------------------------------------------
             # 8) Correct group rules for Series Selection
             # -------------------------------------------------
+            group_formats = {
+                "MATCHED OUTPUT": workbook.add_format({
+                    "bold": True,
+                    "align": "center",
+                    "valign": "vcenter",
+                    "border": 1,
+                    "bg_color": "#4472C4",
+                    "font_color": "#FFFFFF"
+                }),
+
+                "SERIES INFO": workbook.add_format({
+                    "bold": True,
+                    "align": "center",
+                    "valign": "vcenter",
+                    "border": 1,
+                    "bg_color": "#70AD47",
+                    "font_color": "#000000"
+                }),
+
+                "SCORES": workbook.add_format({
+                    "bold": True,
+                    "align": "center",
+                    "valign": "vcenter",
+                    "border": 1,
+                    "bg_color": "#FFC000",
+                    "font_color": "#000000"
+                }),
+
+                "IDENTIFIERS": workbook.add_format({
+                    "bold": True,
+                    "align": "center",
+                    "valign": "vcenter",
+                    "border": 1,
+                    "bg_color": "#C00000",
+                    "font_color": "#FFFFFF"
+                }),
+
+                "USER SELECTION": workbook.add_format({
+                    "bold": True,
+                    "align": "center",
+                    "valign": "vcenter",
+                    "border": 1,
+                    "bg_color": "#7030A0",
+                    "font_color": "#FFFFFF"
+                }),
+            }
+
+            # -------------------------------------------------
+            # 9) First fill full group row
+            # -------------------------------------------------
             groups = [
                 ("MATCHED OUTPUT", [
                     "ID",
@@ -486,15 +968,25 @@ class all_functions:
                     "YEARS",
                     "TT_CODES"
                 ]),
+
                 ("SERIES INFO", [
                     "IP_TYPE",
                     "NODE_IDENTIFIER",
+                    "LIBRARY_TITLE_FULL",
                     "CHILDREN_STATUS"
                 ]),
-                ("SCORES", [
-                    "FINAL_SCORE",
-                    "FINAL_MATCH_RESULT"
-                ]),
+
+                ("SCORES",
+                    [
+                        "FINAL_SCORE",
+                        "SEMANTIC_SCORE",
+                        "MATCH_LEVEL",
+                        "CONFIDENCE",
+                        "FINAL_REASON",
+                        "MATCH_RANK",
+                        "MATCH_EVIDENCE"
+                    ]),
+
                 ("IDENTIFIERS", [
                     "MPM_NUMBER",
                     "PI_UUID",
@@ -509,14 +1001,11 @@ class all_functions:
                     "IBROADCAST_APAC_ID",
                     "For Ingestion"
                 ]),
+
                 ("USER SELECTION", [
                     "Select_Series"
                 ])
             ]
-
-            # -------------------------------------------------
-            # 9) First fill full group row
-            # -------------------------------------------------
             for col_num in range(len(df.columns)):
                 worksheet.write_blank(0, col_num, None, group_band_format)
 
@@ -533,16 +1022,22 @@ class all_functions:
                 end_col = col_positions[present_cols[-1]]
 
                 if start_col == end_col:
-                    worksheet.write(0, start_col, group_name, group_band_format)
+                    fmt = group_formats.get(group_name, group_band_format)
+                    worksheet.write(0, start_col, group_name, fmt)
                 else:
-                    worksheet.merge_range(
-                        0,
-                        start_col,
-                        0,
-                        end_col,
-                        group_name,
-                        group_band_format
-                    )
+                    fmt = group_formats.get(group_name, group_band_format)
+
+                    if start_col == end_col:
+                        worksheet.write(0, start_col, group_name, fmt)
+                    else:
+                        worksheet.merge_range(
+                            0,
+                            start_col,
+                            0,
+                            end_col,
+                            group_name,
+                            fmt
+                        )
 
             # -------------------------------------------------
             # 10) Actual headers
@@ -816,7 +1311,6 @@ class all_functions:
     def get_connection():
         return snowflake.connector.connect(
             user='MUVEESHKUMAR.SHANMUGAM@WBD.COM',
-            password='MUVEE@23devamanohari', # optional
             account='WBD-COMMONDATAPROD',   
             database='BOLT_MSC_CDS_PROD',
             schema='ATOM_BI',
@@ -876,12 +1370,24 @@ class all_functions:
         candidate_title = candidate_title.strip()
         extra_words = self.extra_word_ratio(input_title, candidate_title)
         
-        # 🔴 HARD RULE: numbers must match
-        input_nums = self.extract_numbers(input_title)
-        candidate_nums = self.extract_numbers(candidate_title)
+        input_s, input_e = self.extract_season_episode(input_title)
+        cand_s, cand_e = self.extract_season_episode(candidate_title)
 
-        if not set(input_nums).issubset(set(candidate_nums)):
-            return "Reject"
+        if input_s is not None and cand_s is not None:
+
+            if input_s != cand_s:
+                return "Reject"
+
+            if input_e != cand_e:
+                return "Reject"
+
+        else:
+
+            input_nums = self.extract_numbers(input_title)
+            candidate_nums = self.extract_numbers(candidate_title)
+
+            if not set(input_nums).issubset(set(candidate_nums)):
+                return "Reject"
         
         if "AKA" in input_title.upper():
             if semantic_score >= 50:
@@ -928,11 +1434,23 @@ class all_functions:
         # -------------------------------------------------
         # 1) HARD RULE: numbers must match (same as final_decision)
         # -------------------------------------------------
-        input_nums = self.extract_numbers(input_title)
-        candidate_nums = self.extract_numbers(candidate_title)
+        input_s, input_e = self.extract_season_episode(input_title)
+        cand_s, cand_e = self.extract_season_episode(candidate_title)
 
-        if not set(input_nums).issubset(set(candidate_nums)):
-            return "Reject"
+        if input_s is not None and cand_s is not None:
+
+            if input_s != cand_s:
+                return "Reject"
+
+            if input_e != cand_e:
+                return "Reject"
+
+        else:
+            input_nums = self.extract_numbers(input_title)
+            candidate_nums = self.extract_numbers(candidate_title)
+
+            if not set(input_nums).issubset(set(candidate_nums)):
+                return "Reject"
 
         # -------------------------------------------------
         # 2) Extra word controls for episodic logic
@@ -1132,7 +1650,12 @@ class all_functions:
                 continue
             start = col_positions[cols_present[0]]
             end   = col_positions[cols_present[-1]]
-            worksheet.merge_range(0, start, 0, end, group_name, self.group_band_format)
+            fmt = self.group_formats.get(group_name, self.group_band_format)
+
+            if start == end:
+                worksheet.write(0, start, group_name, fmt)
+            else:
+                worksheet.merge_range(0, start, 0, end, group_name, fmt)
 
         # headers
         for col_num, col_name in enumerate(df2.columns):
@@ -1156,7 +1679,7 @@ class all_functions:
         tt_col_index   = df2.columns.get_loc("TT_CODES") if "TT_CODES" in df2.columns else None
         ingestion_col_index = df2.columns.get_loc("For Ingestion") if "For Ingestion" in df2.columns else None
         
-        @staticmethod
+
         def extract_tt(s: str):
             if not s:
                 return None
@@ -1273,6 +1796,17 @@ class all_functions:
         series_df = series_df.copy()
 
         if series_df.empty:
+            series_df = self.add_match_ranking(
+                series_df,
+                "ID",
+                "FINAL_SCORE"
+            )
+
+            series_df = self.add_explainability_columns(
+                series_df,
+                "FINAL_SCORE",
+                "FINAL_MATCH_RESULT"
+)
             return series_df
 
         series_df["ID"] = pd.to_numeric(series_df["ID"], errors="coerce").astype("Int64")
@@ -1325,6 +1859,18 @@ class all_functions:
         series_df["INPUT_TITLE"] = series_df["INPUT_SERIES_TITLE"]
         series_df["MATCH_LEVEL"] = "Series"
 
+        series_df = self.add_match_ranking(
+            series_df,
+            "ID",
+            "FINAL_SCORE"
+        )
+
+        series_df = self.add_explainability_columns(
+            series_df,
+            "FINAL_SCORE",
+            "FINAL_MATCH_RESULT"
+        )
+
         return series_df
 
 
@@ -1332,6 +1878,17 @@ class all_functions:
         child_df = child_df.copy()
 
         if child_df.empty:
+            child_df = self.add_match_ranking(
+                child_df,
+                "ID",
+                "FINAL_SCORE"
+            )
+
+            child_df = self.add_explainability_columns(
+                child_df,
+                "FINAL_SCORE",
+                "FINAL_MATCH_RESULT"
+            )
             return child_df
 
         child_df["ID"] = pd.to_numeric(child_df["ID"], errors="coerce").astype("Int64")
@@ -1466,6 +2023,18 @@ class all_functions:
         )
 
         child_df["FINAL_SCORE"] = child_df["SEMANTIC_SCORE_1"]
+
+        child_df = self.add_match_ranking(
+            child_df,
+            "ID",
+            "FINAL_SCORE"
+        )
+
+        child_df = self.add_explainability_columns(
+            child_df,
+            "FINAL_SCORE",
+            "FINAL_MATCH_RESULT"
+        )
 
         return child_df
 
