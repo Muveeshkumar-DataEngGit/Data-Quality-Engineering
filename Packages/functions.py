@@ -180,19 +180,31 @@ class load_and_match(initial_class):
             foundry["Episode"] = pd.to_numeric(foundry["episode-number"], errors="coerce").fillna(0).astype(int)
         else:
             foundry["Episode"] = 0
-        foundry['*Title name'] = foundry['main-title']
-        foundry['MPM Number'] = ""
-        foundry['Primary Release Date'] = pd.NaT
+        if "main-title" not in foundry.columns:
+            raise KeyError(f"'main-title' not found in Foundry columns: {foundry.columns.tolist()}")
+
+        foundry["*Title name"] = foundry["main-title"]
+        foundry["MPM Number"] = ""
+        foundry["Primary Release Date"] = pd.NaT
+
         base_cols = [
-            "uuid", "asset-type", "*Title name",'MPM Number', 'Primary Release Date',
-            "description-400", "listings-description",
-            "long-description", "main-description",
-            "short-description", "Season", "Episode"
+            "uuid",
+            "asset-type",
+            "main-title",
+            "*Title name",
+            "MPM Number",
+            "Primary Release Date",
+            "description-400",
+            "listings-description",
+            "long-description",
+            "main-description",
+            "short-description",
+            "Season",
+            "Episode"
         ]
 
         existing_cols = [c for c in base_cols if c in foundry.columns]
         foundry = foundry[existing_cols].copy()
-
         asset_type_series = {"series", "season", "episode"}
         asset_type_movie = {"movie", "feature", "film"}
 
@@ -257,7 +269,14 @@ class load_and_match(initial_class):
             })
 
             if series_season is not None and not series_season.empty:
-                return pd.merge(wbtv, series_season, on=["Season", "Episode"], how="left")
+                return pd.merge(
+                    wbtv,
+                    series_season,
+                    on=["Season", "Episode"],
+                    how="left",
+                    suffixes=("", "_foundry")
+                )
+
             return wbtv
 
         else:
@@ -357,8 +376,12 @@ class load_and_match(initial_class):
             wb2b = wb2b.sort_values(by=["Season", "Episode"])
 
             if (not has_wbtv) and (series_season is not None) and (not series_season.empty):
-                return pd.merge(wb2b, series_season, on=["Season", "Episode"], how="left")
-
+                return pd.merge(
+                    wb2b,
+                    series_season,
+                    on=["Season", "Episode"],
+                    how="left",
+                    suffixes=("", "_foundry"))
             return wb2b
 
         else:

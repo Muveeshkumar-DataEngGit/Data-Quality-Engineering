@@ -1,3 +1,20 @@
-2026-06-16 17:54:33,933 - __main__ - INFO - Enter short and long synopsis word count thresholds
-2026-06-16 17:55:16,869 - __main__ - INFO - File verification Done
-2026-06-16 17:55:37,504 - __main__ - INFO - Template 'SVOD_LORT_Extra' created successfully.
+2026-07-07 14:54:59,378 - __main__ - INFO - Enter dynamic synopsis column details
+2026-07-07 14:55:54,230 - __main__ - INFO - File verification Done
+2026-07-07 14:58:31,344 - __main__ - WARNING - Formatting skipped for sheet English: format_sheet_openpyxl requires at least 3 limits.
+2026-07-07 14:58:31,361 - __main__ - INFO - Template 'SVOD_BLINDSPOT_S[1-5]_(it)' created successfully.
+2026-07-07 15:10:12,354 - __main__ - INFO - Enter dynamic synopsis column details
+2026-07-07 15:10:52,998 - __main__ - INFO - File verification Done
+2026-07-07 15:13:55,451 - __main__ - WARNING - Formatting skipped for sheet English: format_sheet_openpyxl requires at least 3 limits.
+2026-07-07 15:13:55,470 - __main__ - INFO - Template 'SVOD_DC'S LEGENDS OF TOMORROW_S[1-7]_(it)' created successfully.
+2026-07-07 15:21:28,596 - __main__ - INFO - Enter dynamic synopsis column details
+2026-07-07 15:22:06,043 - __main__ - INFO - File verification Done
+2026-07-07 15:23:54,227 - __main__ - WARNING - Formatting skipped for sheet English: format_sheet_openpyxl requires at least 3 limits.
+2026-07-07 15:23:54,263 - __main__ - INFO - Template 'SVOD_FALLING SKIES_S[1-5]_(it)' created successfully.
+2026-07-07 15:29:56,912 - __main__ - INFO - Enter dynamic synopsis column details
+2026-07-07 15:30:28,174 - __main__ - INFO - File verification Done
+2026-07-07 15:32:44,613 - __main__ - WARNING - Formatting skipped for sheet English: format_sheet_openpyxl requires at least 3 limits.
+2026-07-07 15:32:44,629 - __main__ - INFO - Template 'SVOD_IZOMBIE_S[1-5]_(it)' created successfully.
+2026-07-07 15:39:34,128 - __main__ - INFO - Enter dynamic synopsis column details
+2026-07-07 15:40:22,247 - __main__ - INFO - File verification Done
+2026-07-07 15:42:43,669 - __main__ - WARNING - Formatting skipped for sheet English: format_sheet_openpyxl requires at least 3 limits.
+2026-07-07 15:42:43,697 - __main__ - INFO - Template 'SVOD_MAJOR CRIMES_S[1-6]_(it)' created successfully.
