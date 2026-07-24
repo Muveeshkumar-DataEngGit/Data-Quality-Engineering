@@ -14,12 +14,14 @@ from openpyxl.utils import get_column_letter
 from sentence_transformers import CrossEncoder
 import shutil
 import re
+MODEL_PATH = r"C:\Users\mshanmugam\.cache\huggingface\hub\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
 
+CROSS_PATH = r"C:\Users\mshanmugam\.cache\huggingface\hub\models--cross-encoder--stsb-distilroberta-base\snapshots\6b71347df6e2b34246b53e06d6bce70ef67de368"
 
 class initial_class:
     def __init__(self, bi_encoder_name="all-MiniLM-L6-v2", cross_encoder_name="cross-encoder/stsb-distilroberta-base"):
-        self.model = SentenceTransformer(bi_encoder_name)
-        self.cross_model = CrossEncoder(cross_encoder_name)
+        self.model = SentenceTransformer(MODEL_PATH)
+        self.cross_model = CrossEncoder(CROSS_PATH)
     # ============================================================
     # ✅ CONTENT TYPE INPUT
     # ============================================================
@@ -968,8 +970,8 @@ class matching_pipeline(load_and_match):
                 has_wbtv=("WBTV" in sources)
             )
 
-        model = SentenceTransformer("all-MiniLM-L6-v2")
-        cross_model = CrossEncoder("cross-encoder/stsb-distilroberta-base")
+        model = SentenceTransformer(MODEL_PATH)
+        cross_model = CrossEncoder(CROSS_PATH)
 
         # =====================================================
         # SERIES ROUTING
@@ -1121,19 +1123,42 @@ class matching_pipeline(load_and_match):
 
    
     @staticmethod
-    def format_sheet_openpyxl(ws, short, long, too_long):
+    def format_sheet_openpyxl(ws):
         """
         Apply header formatting, borders, auto width,
         and highlight invalid synopsis cells dynamically
-        based on column header (Character Limit)
+        based on headers containing:
+        (250 Character Limit), (500 Character Limit), etc.
         """
 
+        import re
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+
         # =========================
-        # 🎨 STYLES
+        # STYLES
         # =========================
-        header_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-        header_font = Font(bold=True)
-        header_alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        header_fill = PatternFill(
+            start_color="C6EFCE",
+            end_color="C6EFCE",
+            fill_type="solid"
+        )
+
+        header_font = Font(
+            bold=True,
+            color="000000"
+        )
+
+        header_alignment = Alignment(
+            horizontal="center",
+            vertical="center",
+            wrap_text=True
+        )
+
+        normal_alignment = Alignment(
+            vertical="top",
+            wrap_text=True
+        )
 
         border = Border(
             left=Side(style="thin"),
@@ -1142,11 +1167,14 @@ class matching_pipeline(load_and_match):
             bottom=Side(style="thin")
         )
 
-        # 🔴 Highlight style
-        error_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+        error_fill = PatternFill(
+            start_color="FFC7CE",
+            end_color="FFC7CE",
+            fill_type="solid"
+        )
 
         # =========================
-        # 📌 HEADER FORMATTING
+        # HEADER FORMATTING
         # =========================
         for cell in ws[1]:
             cell.font = header_font
@@ -1154,56 +1182,64 @@ class matching_pipeline(load_and_match):
             cell.alignment = header_alignment
             cell.border = border
 
+        ws.freeze_panes = "A2"
+
+        if ws.max_row >= 1 and ws.max_column >= 1:
+            ws.auto_filter.ref = ws.dimensions
+
         # =========================
-        # 📌 IDENTIFY VALIDATION COLUMNS DYNAMICALLY
+        # IDENTIFY DYNAMIC VALIDATION COLUMNS
         # =========================
         validation_columns = {}
 
         for cell in ws[1]:
             header = str(cell.value).strip() if cell.value else ""
 
-            # Match headers ending with "Character Limit)"
-            if header.endswith("Character Limit)"):
-                # Extract number inside ()
-                match = re.search(r"\((\d+)\s*Character Limit\)", header)
-                if match:
-                    limit = int(match.group(1))
-                    col_letter = get_column_letter(cell.column)
-                    validation_columns[col_letter] = limit
+            # Example:
+            # Synopsis (250) SOURCE (250 Character Limit)
+            # Synopsis (500) TRANSLATION (500 Character Limit)
+            match = re.search(r"\((\d+)\s*Character\s*Limit\)\s*$", header)
+
+            if match:
+                limit = int(match.group(1))
+                validation_columns[cell.column] = limit
 
         # =========================
-        # 📌 APPLY BORDER + VALIDATION
+        # APPLY BORDER + VALIDATION
         # =========================
+        highlighted_count = 0
+
         for row in ws.iter_rows(min_row=2):
             for cell in row:
                 cell.border = border
+                cell.alignment = normal_alignment
 
-                col_letter = get_column_letter(cell.column)
-
-                # Apply validation only to detected columns
-                if col_letter in validation_columns:
-                    limit = validation_columns[col_letter]
+                if cell.column in validation_columns:
+                    limit = validation_columns[cell.column]
                     value = str(cell.value).strip() if cell.value is not None else ""
 
-                    # 🔴 Highlight if empty OR exceeds limit
-                    if (not value) or (len(value) > limit):
+                    if not value or len(value) > limit:
                         cell.fill = error_fill
+                        highlighted_count += 1
 
         # =========================
-        # 📌 AUTO COLUMN WIDTH
+        # AUTO COLUMN WIDTH
         # =========================
         for col in ws.columns:
             max_length = 0
             col_letter = get_column_letter(col[0].column)
 
             for cell in col:
-                try:
-                    if cell.value:
-                        max_length = max(max_length, len(str(cell.value)))
-                except Exception:
-                    pass
+                if cell.value is not None:
+                    max_length = max(max_length, len(str(cell.value)))
 
             ws.column_dimensions[col_letter].width = min(max_length + 2, 50)
+
+        print(
+            f"Formatting applied on sheet '{ws.title}'. "
+            f"Validation columns found: {len(validation_columns)}. "
+            f"Highlighted cells: {highlighted_count}"
+        )
     # =========================
     # HELPER FUNCTIONS
     # =========================
