@@ -768,18 +768,19 @@ class matching_pipeline(load_and_match):
             # FIX 3: add minimum cosine gate — fallback no longer accepts what
             # the semantic threshold explicitly rejected
             if not found and episode != 0:
-                exact  = R[(R[season_col] == season) & (R[episode_col] == episode)]
+                exact = R[
+                    (R[season_col].astype(int) == season) &
+                    (R[episode_col].astype(int) == episode)
+                ]
+
                 unused = [idx for idx in exact.index if idx not in used_right]
 
                 if unused:
-                    scores   = cos_scores[i][unused]
-                    best_pos = torch.argmax(scores).item()
-                    best_cos = scores[best_pos].item()
-
-                    if best_cos >= fallback_cosine_threshold:          # FIX 3
-                        best_j     = unused[best_pos]
-                        found      = True
-                        match_type = "Season + Episode"
+                    # Pure Season + Episode fallback
+                    # No cosine gate, because season/episode is the fallback rule
+                    best_j = unused[0]
+                    found = True
+                    match_type = "Season + Episode"
 
             # ── store result ──────────────────────────────────────────────────────
             if found:
