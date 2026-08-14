@@ -1,0 +1,90 @@
+from difflib import SequenceMatcher
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import pandas as pd
+import numpy as np
+import re
+
+# Read Excel range
+titles = xl("main!G2:G1381", headers=False)
+
+# --------------------------------------------------
+# Normalize text
+# --------------------------------------------------
+def normalize(text):
+    text = str(text).lower().strip()
+    text = re.sub(r"[^a-z0-9\s]", "", text)   # remove special characters
+    text = re.sub(r"\s+", " ", text)          # remove extra spaces
+    return text.strip()
+
+# Original values
+vals = titles.iloc[:, 0].fillna("").astype(str).tolist()
+
+# Cleaned values for matching
+clean_vals = [normalize(v) for v in vals]
+n = len(clean_vals)
+
+# --------------------------------------------------
+# TF-IDF Matrix + full cosine similarity (computed once)
+# --------------------------------------------------
+vectorizer = TfidfVectorizer(
+    analyzer="char_wb",
+    ngram_range=(2, 4)
+)
+tfidf_matrix = vectorizer.fit_transform(clean_vals)
+cos_sim_matrix = cosine_similarity(tfidf_matrix)  # n x n, computed once
+
+# --------------------------------------------------
+# Union Find
+# --------------------------------------------------
+parent = list(range(n))
+
+def find(x):
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+def union(a, b):
+    a = find(a)
+    b = find(b)
+    if a != b:
+        parent[max(a, b)] = min(a, b)
+
+# --------------------------------------------------
+# Matching Logic
+# --------------------------------------------------
+for i in range(n):
+    if not clean_vals[i]:
+        continue
+    for j in range(i):
+        if not clean_vals[j]:
+            continue
+        seq_score = SequenceMatcher(None, clean_vals[i], clean_vals[j]).ratio()
+        cos_score = cos_sim_matrix[i][j]
+
+        # Matching Rules
+        if seq_score >= 0.92 or (seq_score >= 0.75 and cos_score >= 0.55):
+            union(i, j)
+
+# --------------------------------------------------
+# Build groups
+# --------------------------------------------------
+groups = {}
+for i in range(n):
+    if not clean_vals[i]:
+        continue
+    root = find(i)
+    groups.setdefault(root, []).append(i)
+
+# --------------------------------------------------
+# Output column
+# --------------------------------------------------
+result = [""] * n
+for rows in groups.values():
+    if len(rows) > 1:
+        first_row = min(rows) + 2
+        for idx in rows:
+            result[idx] = first_row
+
+np.array(result, dtype=object).reshape(-1, 1)
