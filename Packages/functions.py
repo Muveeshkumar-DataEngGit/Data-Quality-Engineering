@@ -1,19 +1,64 @@
-# AKA split
+"""
+--       This module contains a collection of utility functions and classes for handling various data processing tasks.       --
+
+"""
+
 import snowflake.connector
+# Used to connect to Snowflake and execute SQL queries
+
 import re
+# Used for pattern matching and text processing with regular expressions
+
 import math
+# Used for built-in mathematical functions and calculations
+
 import numpy as np
+# Used for numerical operations, arrays, and mathematical computations
+
 import pandas as pd
+# Used for data manipulation, analysis, and tabular data processing with DataFrames
+
 from sentence_transformers import SentenceTransformer, CrossEncoder, util
+# SentenceTransformer is used to generate semantic text embeddings.
+# CrossEncoder is used for pairwise similarity scoring and re-ranking.
+# util provides helper functions such as cosine similarity computation.
+
 import unicodedata
+# Used for Unicode normalization and standardizing special characters
+
 import tkinter as tk
+# Used to create GUI elements and initialize the Tkinter interface
+
 from tkinter import filedialog
+# Used to open file selection dialogs in the GUI
+
 import os
+# Used for file paths, directory handling, and operating system interactions
+
 import shutil
+# Used for high-level file operations such as copying, moving, and deleting files or folders in windows
+
 import subprocess
+# Used to run external commands or scripts from within Python
+
 import sys
+# Used for system-specific parameters and functions, such as exiting the script
+
 import logging
+# Used to record logs for debugging, monitoring, and tracking script execution
+
 import torch
+# Used for PyTorch tensor operations and GPU acceleration when available
+
+"""
+                   -- Custom logger configuration. --
+
+This logger is created using the current module name, configured with an
+INFO log level, and attached to a file handler that writes log messages
+to 'Smart.log'. The log file is opened in write mode, so it is overwritten
+each time the script starts.
+
+"""
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -22,12 +67,63 @@ fh = logging.FileHandler('Smart.log', mode='w')   # ✅ overwrite file
 fh.setFormatter(f)
 logger.addHandler(fh)
 
+
+
+"""
+-- AllFunctions class provides helper methods for title matching, scoring,explainability, Snowflake connectivity, and formatted Excel report generation. --
+
+It initializes Excel writer and workbook attributes, defines reusable formatting
+rules, prepares matching outputs, calculates semantic and CrossEncoder scores,
+generates match decisions, ranks candidates, and writes formatted Excel sheets.
+
+The utility methods support:
+- Season and episode extraction.
+- AKA title splitting.
+- Title normalization.
+- Numeric value extraction and comparison.
+- Confidence and reason-code generation.
+- Match evidence creation.
+- Candidate ranking and top-N filtering.
+- Series and episodic match scoring.
+- Child candidate filtering by selected parent series.
+- Safe numeric conversion for Excel output.
+- Grouped Excel formatting with hyperlinks and warning highlights.
+- No-match and Series selection Excel sheet creation.
+"""
 class all_functions:
     def __init__(self):
+        """
+        Initializes the class-level Excel writer and workbook attributes.
+
+        The writer and workbook are set to None during object creation because
+        they will be assigned later when the Excel output file is created or
+        loaded. This ensures the attributes are available across different class
+        methods and prevents undefined attribute errors.
+        """
         self.writer = None
         self.workbook = None
 
     def set_writer(self, writer):
+        """
+        Sets the Excel writer object and initializes workbook-level formatting rules.
+
+        This method receives an existing Excel writer object, stores it at the class
+        level, and extracts the underlying workbook object from `writer.book`. The
+        workbook is then used to create reusable Excel formats such as header styles,
+        border styles, hyperlink styles, score/group header colors, ID highlights,
+        and warning formats.
+
+        The method also defines report configuration rules, including:
+            - Column grouping rules for STANDALONE, SERIES, and EPISODICS outputs.
+            - Priority identifier columns used for ingestion.
+            - Columns that should be converted to numeric values where possible.
+            - Base URLs used for hyperlink generation.
+            - Header, border, group, hyperlink, and warning formats.
+            - Fixed column widths and minimum/maximum width limits.
+
+        This setup allows other class methods to reuse a common workbook configuration
+        while writing formatted Excel sheets.
+        """
         self.writer = writer
         self.workbook = writer.book
         # -----------------------------
@@ -386,6 +482,31 @@ class all_functions:
     
     @staticmethod
     def extract_season_episode(title):
+        """
+        Extracts season and episode numbers from a title string.
+
+        This function checks whether the given title contains season and episode
+        information in common formats such as:
+            - S5E09
+            - S5 Episode 09
+            - S5 Ep 09
+            - Season 5 Episode 09
+            - 509, interpreted as Season 5 Episode 09
+
+        If a matching pattern is found, the function returns the season and episode
+        numbers as integers. If no pattern is found, it returns `(None, None)`.
+
+        Parameters:
+            title:
+                The input title or text value from which season and episode numbers
+                need to be extracted.
+
+        Returns:
+            tuple:
+                A tuple in the format `(season_number, episode_number)`.
+                If no valid season or episode pattern is found, returns
+                `(None, None)`.
+        """
 
         title = str(title)
 
@@ -429,6 +550,28 @@ class all_functions:
     
     @staticmethod
     def confidence_bucket(score):
+        """
+        Converts a numeric match score into a confidence category.
+
+        This function is used to classify match scores into readable confidence
+        levels such as Very High, High, Medium, or Low. If the score is missing,
+        the function returns a blank value.
+
+        Score rules:
+            - 98 and above  : Very High
+            - 95 to 97.99   : High
+            - 85 to 94.99   : Medium
+            - Below 85      : Low
+
+        Parameters:
+            score:
+                Numeric score value, usually a semantic score or final match score.
+
+        Returns:
+            str:
+                Confidence label based on the score.
+                Returns an empty string if the score is missing.
+        """
 
         if pd.isna(score):
             return ""
@@ -453,6 +596,48 @@ class all_functions:
         numbers_pass=True,
         parent_pass=True
     ):
+        """
+        Returns a standardized reason code explaining the final match decision.
+
+        This function evaluates the match result, semantic similarity score, AKA
+        status, number validation, and parent validation to generate a clear reason
+        for why a match was accepted, rejected, or marked for manual review.
+
+        The function gives priority to hard failure rules first, such as number
+        mismatch or parent mismatch. If no hard failure exists, it evaluates the
+        final match result and returns a reason code based on the match type and
+        score thresholds.
+
+        Parameters:
+            result:
+                Final match decision, such as "Reject", "Perfect Match", or
+                "Possible Match".
+
+            semantic_score:
+                Numeric semantic similarity score between the input title and the
+                candidate title.
+
+            cross_score:
+                Optional cross-encoder score. This parameter is currently accepted
+                by the function but is not directly used in the current logic.
+
+            aka:
+                Boolean flag indicating whether the input title is related to an
+                AKA or alternate title scenario.
+
+            numbers_pass:
+                Boolean flag indicating whether number-based validation passed.
+                For example, season, episode, or other numeric values matched.
+
+            parent_pass:
+                Boolean flag indicating whether parent-title or parent-entity
+                validation passed.
+
+        Returns:
+            str:
+                A reason code such as NUMBER_MISMATCH, EXACT_TITLE_MATCH,
+                HIGH_CONFIDENCE_REVIEW, REVIEW_REQUIRED, or UNKNOWN.
+        """
 
         # hard failures first
         if not numbers_pass:
@@ -499,6 +684,29 @@ class all_functions:
     
     @staticmethod
     def build_match_evidence(row):
+        """
+        Builds a human-readable evidence summary for a matched record.
+
+        This function checks whether score and decision columns are available in
+        the given row. If available, it collects values such as semantic score,
+        final score, cross-encoder score, and match decision into a single text
+        string.
+
+        The output is useful for explaining why a match was selected, rejected, or
+        marked for review in the final Excel report.
+
+        Parameters:
+            row:
+                A pandas Series representing one row from the matching DataFrame.
+
+        Returns:
+            str:
+                A pipe-separated evidence string containing available score and
+                decision values.
+
+                Example:
+                    "Semantic=96.4 | Final=97.1 | Cross=88.5 | Decision=Perfect Match"
+        """
 
         evidence = []
 
@@ -531,6 +739,35 @@ class all_functions:
     
     @staticmethod
     def add_match_ranking(df, id_col, score_col):
+        """
+        Adds match ranking and keep recommendation columns to a DataFrame.
+
+        This function ranks candidate matches within each ID group based on the
+        provided score column. The highest-scoring candidate for each ID receives
+        rank 1 and is marked as the recommended match to keep.
+
+        The function is useful when multiple candidate records are available for
+        the same input ID and the output needs to identify the best match based on
+        score.
+
+        Parameters:
+            df:
+                Input pandas DataFrame containing match candidates.
+
+            id_col:
+                Column name used to group related match candidates.
+                For example, "ID".
+
+            score_col:
+                Column name used to rank matches within each ID group.
+                Higher scores are ranked first.
+
+        Returns:
+            pandas.DataFrame:
+                A copy of the input DataFrame with two additional columns:
+                    - MATCH_RANK: Rank of each candidate within its ID group.
+                    - KEEP_RECOMMENDED: "Yes" for rank 1, otherwise "No".
+        """
 
         if df.empty:
             return df
@@ -561,6 +798,43 @@ class all_functions:
         score_col,
         result_col
     ):
+        """
+        Adds explainability columns to the matching results DataFrame.
+
+        This method enriches the match output by adding confidence, reason, and
+        evidence columns. These columns help users understand why a title match was
+        accepted, rejected, or marked for review.
+
+        The method creates:
+            - CONFIDENCE:
+                A readable confidence category generated from the score column.
+                Example values include Very High, High, Medium, and Low.
+
+            - FINAL_REASON:
+                A standardized reason code generated from the match result,
+                score, optional cross score, and AKA status.
+
+            - MATCH_EVIDENCE:
+                A compact evidence string that combines available scores and match
+                decisions into one readable text value.
+
+        Parameters:
+            df:
+                Input pandas DataFrame containing match results.
+
+            score_col:
+                Name of the score column used to calculate confidence and reason.
+                Example: "FINAL_SCORE" or "SEMANTIC_SCORE".
+
+            result_col:
+                Name of the result column used to determine the match reason.
+                Example: "FINAL_MATCH_RESULT" or "MATCH_RESULT".
+
+        Returns:
+            pandas.DataFrame:
+                A copy of the input DataFrame with added explainability columns.
+                If the input DataFrame is empty, it is returned unchanged.
+        """
 
         if df.empty:
             return df
@@ -596,6 +870,30 @@ class all_functions:
 
     @staticmethod
     def split_aka(title):
+        """
+        Splits a title into separate searchable title variants.
+
+        This function handles titles that contain AKA values, alternate names,
+        or slash-separated title variants. If the title contains an AKA section
+        inside parentheses, the function extracts the AKA values, removes the
+        AKA section from the main title, and returns both the main title and
+        alias titles as a list.
+
+        examples:
+            - "Movie Title *AKA. Alternate Title)"
+            - "Movie Title (AKA Alternate Title / the Title)"
+            - "Movie Titl* / Alternate Title"
+            - "Mov*e Title AKA Alternate Title"
+
+        Parameters:
+            title:
+                Input title value, usually from*a pandas DataFrame column.
+
+        Re*urns:
+            list:
+                A List of cleaned title variants. If the input is missing, the
+                function returns the original missing value inside a list.
+        """
         if pd.isna(title):
             return [title]
 
@@ -631,12 +929,34 @@ class all_functions:
     
     @staticmethod
     def normalize_title(title):
+        """
+        Normalizes a title string for consistent matching and comparison.
+
+        This function cleans and standardizes input titles by handling missing
+        values, trimming spaces, normalizing Unicode characters, removing accent
+        marks, converting text to lowercase, removing unwanted punctuation,
+        removing trailing release years, removing version labels, and collapsing
+        extra spaces.
+
+        This is useful before title matching because different title formats can
+        refer to the same content. For example, "Café Society (2016)" and
+        "Cafe Society" can be normalized into a more comparable form.
+
+        Parameters:
+            title:
+                Input title value, usually from a pandas DataFrame column.
+
+        Returns:
+            str:
+                A cleaned and normalized title string. Returns an empty string
+                if the input title is missing.
+        """
         if pd.isna(title):
             return ""
         # Trim space:
         title = title.strip()
         
-        # 1️⃣ Normalize Unicode (NFKD separates accents)
+        # 1️⃣ Normalize Unicode (NFKD separates accents: "café" ==> After NFKD: é = two codepoints — e (U+0065) + ´ combining accent (U+0301))
         title = unicodedata.normalize('NFKD', str(title))
         
         # 2️⃣ Remove accent marks (convert → ASCII)
@@ -661,6 +981,27 @@ class all_functions:
     
     @staticmethod
     def open_excel_file(path):
+        """
+        Opens an Excel file automatically using the default application for the
+        current operating system.
+
+        This function checks the operating system and uses the appropriate command
+        to open the file:
+            - Windows: uses os.startfile()
+            - macOS: uses the open command
+            - Linux or other Unix-like systems: uses xdg-open
+
+        If the file cannot be opened automatically, the function catches the error
+        and writes a warning message to the logger instead of stopping the script.
+
+        Parameters:
+            path:
+                Full file path of the Excel file that should be opened.
+
+        Returns:
+            None
+        """
+
         try:
             if sys.platform.startswith("win"):
                 os.startfile(path)
@@ -673,10 +1014,36 @@ class all_functions:
 
     @staticmethod
     def write_series_selection_file(df, output_path):
-        import pandas as pd
-        import numpy as np
-        import re
-        import math
+        """
+        Creates a formatted Excel file for manual Series match selection.
+
+        This function prepares a Series match review file from the provided
+        DataFrame and writes it to an Excel workbook. It adds a `Select_Series`
+        column, derives a `For Ingestion` column based on available identifier
+        fields, reorders columns into business-friendly groups, normalizes numeric
+        identifier values, and applies Excel formatting for review.
+
+        The final Excel sheet includes:
+            - Grouped header bands for matched output, series information, scores,
+            identifiers, and user selection.
+            - A dropdown list in the `Select_Series` column with Yes or No values.
+            - Hyperlinks for Reltio entity identifiers and IMDb title codes.
+            - Highlighting for duplicate IDs, missing ingestion IDs, and identifier
+            values containing pipe characters.
+            - Auto-adjusted column widths, filters, frozen panes, and styled headers.
+
+        Parameters:
+            df:
+                pandas DataFrame containing candidate series match records.
+
+            output_path:
+                Full path where the generated Excel file should be saved.
+
+        Returns:
+            None
+                The function writes the formatted Excel file directly to
+                `output_path`.
+        """
 
         df = df.copy()
 
@@ -689,7 +1056,7 @@ class all_functions:
         # -------------------------------------------------
         # 2) Keep original final-score column names
         # DO NOT rename FINAL_SCORE / FINAL_MATCH_RESULT
-        # because your later code uses these names.
+        # because the later code uses these names.
         # -------------------------------------------------
 
         # -------------------------------------------------
@@ -789,6 +1156,33 @@ class all_functions:
         ]
 
         def try_number_preserve_decimals(x):
+            """
+            Safely converts numeric-looking values into int or float while preserving
+            non-numeric values as-is.
+
+            This function is useful when preparing data for Excel output. It converts
+            clean integer values to int, decimal values to float, and blank or missing
+            values to an empty string. If the value is not safely numeric, the original
+            value is returned unchanged.
+
+            Conversion rules:
+                - None, NaN, or blank values are returned as an empty string.
+                - Integer values remain integers.
+                - Float values are converted to int if they have no decimal part.
+                - Decimal float values retain their decimal portion.
+                - Numeric strings such as "12345" are converted to integers.
+                - Numeric strings with commas such as "12,345" are converted to integers.
+                - Decimal strings such as "123.45" are converted to floats.
+                - Non-numeric values such as "ABC123" are returned unchanged.
+
+            Parameters:
+                x:
+                    Input value to convert.
+
+            Returns:
+                int, float, str, or original value:
+                    Converted numeric value when safe, otherwise the original value.
+            """
             if x is None or pd.isna(x):
                 return ""
 
@@ -1071,6 +1465,23 @@ class all_functions:
             imdb_base_url = "https://www.imdb.com/title/"
 
             def extract_tt(s):
+                """
+                Extracts an IMDb title code from a given text value.
+
+                This function searches the input text for an IMDb title identifier in the
+                format `tt` followed by one or more digits, such as `tt1234567`. If a valid
+                IMDb title code is found, it returns the code in lowercase. If no code is
+                found, it returns None.
+
+                Parameters:
+                    s:
+                        Input text that may contain an IMDb title code.
+
+                Returns:
+                    str or None:
+                        The extracted IMDb title code in lowercase if found.
+                        Returns None if the input is empty or no IMDb code is detected.
+                """
                 if not s:
                     return None
                 m = re.search(r"(tt\d+)", str(s), flags=re.IGNORECASE)
@@ -1230,6 +1641,31 @@ class all_functions:
 
     @staticmethod
     def rowwise_cosine(a, b):
+        """
+        Computes row-wise cosine similarity between two embedding tensors.
+
+        This function compares each row in tensor `a` with the corresponding row
+        in tensor `b`. Both tensors are first L2-normalized so each row has unit
+        length. After normalization, cosine similarity can be calculated by
+        multiplying the corresponding values and summing across each row.
+
+        This is useful for comparing aligned title embeddings, where each input
+        title should be compared only with the candidate title in the same row.
+
+        Parameters:
+            a:
+                First tensor containing embeddings.
+                Expected shape: [number_of_rows, embedding_dimension].
+
+            b:
+                Second tensor containing embeddings.
+                Expected shape should match tensor `a`.
+
+        Returns:
+            torch.Tensor:
+                A one-dimensional tensor containing one cosine similarity score
+                for each row pair.
+        """
         a = torch.nn.functional.normalize(a, p=2, dim=1)
         b = torch.nn.functional.normalize(b, p=2, dim=1)
         return (a * b).sum(dim=1)
@@ -1237,6 +1673,21 @@ class all_functions:
 
     @staticmethod
     def select_output_folder():
+        """
+        Opens a folder selection dialog and prepares the selected folder for output.
+
+        This function uses Tkinter to display a folder picker dialog. After the user
+        selects an output folder, the function deletes all existing files, links, and
+        subfolders inside that folder so new output files can be saved into a clean
+        location.
+
+        If no folder is selected, the function returns None.
+
+        Returns:
+            str or None:
+                The selected folder path if a folder is selected.
+                Returns None if the user cancels the folder selection.
+        """
         root = tk.Tk()
         root.withdraw()
         root.attributes("-topmost", True)
@@ -1269,7 +1720,35 @@ class all_functions:
     
     @staticmethod
     def genric_merger(title, series_title, season_number, episode_number):
-        """Generates a merged title based on the provided information."""
+        """
+        Builds an AKA-style merged title using series, season, and episode details.
+
+        This function appends season and episode information to the original title
+        in an AKA format. It is mainly useful for episodic matching scenarios where
+        an episode title needs to include its related series title, season number,
+        and episode number for better matching.
+
+        If either season number or episode number is missing, the original title is
+        returned unchanged.
+
+        Parameters:
+            title:
+                Original title value.
+
+            series_title:
+                Parent or series title to include in the AKA text, if available.
+
+            season_number:
+                Season number used to create the S{season} text.
+
+            episode_number:
+                Episode number used to create the Episode {episode} text.
+
+        Returns:
+            str:
+                The merged title with AKA season and episode information, or the
+                original title if required values are missing or invalid.
+        """
         # ✅ Require BOTH season and episode
         if (
             pd.isna(episode_number) or str(episode_number).strip() == "" or
@@ -1309,6 +1788,7 @@ class all_functions:
 
     @staticmethod
     def get_connection():
+        "Used to connect to Snowflake database"
         return snowflake.connector.connect(
             user='MUVEESHKUMAR.SHANMUGAM@WBD.COM',
             account='WBD-COMMONDATAPROD',   
@@ -1324,6 +1804,51 @@ class all_functions:
 
     @staticmethod
     def apply_cross_encoder(df, colA, colB, semantic_col, out_col, cross_model, low=80, high=88):
+        """
+        Applies a CrossEncoder model to borderline semantic matches.
+
+        This function identifies rows where the semantic similarity score falls
+        within a specified score range. For those rows, it creates text pairs from
+        two selected columns and sends them to a CrossEncoder model for more
+        accurate pairwise scoring.
+
+        The CrossEncoder score is written into a new output column. Rows outside
+        the selected semantic score range are not scored by the CrossEncoder and
+        remain as None in the output column.
+
+        Parameters:
+            df:
+                Input pandas DataFrame containing match candidate records.
+
+            colA:
+                Name of the first text column used for pairwise comparison.
+                Example: "INPUT_TITLE_NORM".
+
+            colB:
+                Name of the second text column used for pairwise comparison.
+                Example: "ATOM_TITLE_NORM".
+
+            semantic_col:
+                Name of the column containing semantic similarity scores.
+
+            out_col:
+                Name of the output column where CrossEncoder scores will be stored.
+
+            cross_model:
+                CrossEncoder model object with a `.predict()` method.
+
+            low:
+                Lower inclusive semantic score threshold.
+                Default is 80.
+
+            high:
+                Upper exclusive semantic score threshold.
+                Default is 88.
+
+        Returns:
+            pandas.DataFrame:
+                The input DataFrame with an added CrossEncoder score column.
+        """
 
         df[out_col] = None
 
@@ -1342,6 +1867,28 @@ class all_functions:
     # Step 2: Control Extra Words (CRITICAL)
     @staticmethod
     def extra_word_ratio(input_title, candidate_title):
+        """
+        Counts the number of extra words in the candidate title compared with the
+        input title.
+
+        This function converts both titles to lowercase, splits them into words,
+        and compares the unique word sets. It returns the count of words that are
+        present in the candidate title but not present in the input title.
+
+        This is useful in title matching to control false positives where a
+        candidate title contains too many additional words beyond the input title.
+
+        Parameters:
+            input_title:
+                Original input title used for matching.
+
+            candidate_title:
+                Candidate title returned from the library or matching source.
+
+        Returns:
+            int:
+                Number of extra unique words found in the candidate title.
+        """
         t1 = set(input_title.lower().split())
         t2 = set(candidate_title.lower().split())
 
@@ -1350,6 +1897,29 @@ class all_functions:
 
     @staticmethod
     def extract_numbers(text, ignore_year=True):
+        """
+        Extracts numeric values from a text string.
+
+        This function searches the input text and returns all digit sequences found.
+        By default, it ignores year-like values between 1900 and 2099 so that
+        release years do not affect title matching logic.
+
+        This is useful when validating whether important numbers in an input title
+        also appear in a candidate title, such as season numbers, episode numbers,
+        part numbers, or installment numbers.
+
+        Parameters:
+            text:
+                Input text from which numbers should be extracted.
+
+            ignore_year:
+                Boolean flag that controls whether year-like numbers from 1900 to
+                2099 should be excluded. Defaults to True.
+
+        Returns:
+            list:
+                A list of extracted numbers as strings.
+        """
         nums = re.findall(r'\d+', text)
         
         if ignore_year:
@@ -1358,6 +1928,7 @@ class all_functions:
         return nums
     
     def numbers_match(self, a, b):
+        "Checking if the numbers in two titles match."
         return self.extract_numbers(a) == self.extract_numbers(b)
     # =========================================================
     # Step 4: Final Decision (Single Title)
@@ -1365,6 +1936,41 @@ class all_functions:
     
     
     def final_decision(self, input_title, candidate_title, semantic_score, cross_score=None):
+        """
+        Determines the final match decision between an input title and a candidate title.
+
+        This method applies a set of business rules to decide whether a candidate
+        title should be treated as a Perfect Match, Possible Match, or Reject.
+
+        The decision logic checks:
+            - Whether season and episode numbers match when both titles contain them.
+            - Whether numeric values from the input title are present in the candidate title.
+            - Whether the input title is an AKA title.
+            - Whether short input titles have too many extra words in the candidate title.
+            - Whether the semantic similarity score is high enough for acceptance.
+            - Whether a CrossEncoder score can improve the decision for borderline cases.
+
+        Parameters:
+            input_title:
+                The original or normalized input title.
+
+            candidate_title:
+                The candidate title being compared against the input title.
+
+            semantic_score:
+                The semantic similarity score, usually scaled from 0 to 100.
+
+            cross_score:
+                Optional CrossEncoder score used for borderline semantic matches.
+                If provided, it can upgrade or reject matches in the 70 to 88 score range.
+
+        Returns:
+            str:
+                One of the following decision labels:
+                    - "Perfect Match"
+                    - "Possible Match"
+                    - "Reject"
+        """
 
         input_title = input_title.strip()
         candidate_title = candidate_title.strip()
@@ -1418,6 +2024,33 @@ class all_functions:
     
 
     def combined_match_logic(self,row):
+        """
+        Combines series-level and episode-level matching results into one final
+        episodic match decision.
+
+        This method is used for episodic matching where two relationships must be
+        evaluated together:
+            - Series title compared with parent title.
+            - Input episode title compared with candidate Atom title.
+
+        The method first applies hard validation rules for season, episode, and
+        other numeric values. It then applies extra-word controls to reduce false
+        positives. After validation, it combines the two individual match decisions
+        and optionally uses CrossEncoder scores to upgrade borderline cases.
+
+        Parameters:
+            row:
+                A pandas Series representing one candidate match row. The row is
+                expected to contain intermediate match result, semantic score,
+                cross score, and extra-word columns.
+
+        Returns:
+            str:
+                Final combined match decision:
+                    - "Perfect Match"
+                    - "Possible Match"
+                    - "Reject"
+        """
         r0 = row.get("MATCH_RESULT_0")   # series_title vs parent_title result
         r1 = row.get("MATCH_RESULT_1")   # input_title vs atom_title result
 
@@ -1518,6 +2151,39 @@ class all_functions:
     # Small helper: Top-N per ID by score using one sort + groupby.head (fast)
     @staticmethod
     def top_n_per_id(df, id_col, score_col, n):
+        """
+        Filters match candidates by keeping high-scoring rows or the top N rows per ID.
+
+        This function sorts the DataFrame by the given ID column and score column.
+        For each ID group, it keeps all rows where the score is 90 or higher. If no
+        rows in that ID group meet the high-score threshold, it keeps only the top
+        N rows based on the score.
+
+        This is useful in matching workflows where strong matches should always be
+        retained, while weaker candidate groups should be limited to a manageable
+        number of review records.
+
+        Parameters:
+            df:
+                Input pandas DataFrame containing candidate match records.
+
+            id_col:
+                Column name used to group records.
+                Example: "ID".
+
+            score_col:
+                Column name used to rank records within each ID group.
+                Example: "FINAL_SCORE" or "SEMANTIC_SCORE".
+
+            n:
+                Number of top rows to keep for an ID group when no score is 90 or
+                above.
+
+        Returns:
+            pandas.DataFrame:
+                Filtered DataFrame containing either all high-score rows per ID or
+                the top N rows when no high-score records exist.
+        """
         df = df.sort_values([id_col, score_col], ascending=[True, False])
 
         def filter_group(group):
@@ -1534,6 +2200,26 @@ class all_functions:
     
     @staticmethod
     def flatten_groups(groups):
+        """
+        Flattens grouped column definitions into a single ordered column list.
+
+        This helper takes a list of grouped column configurations, where each group
+        contains a group name and a list of column names. It ignores the group names
+        and returns one combined list of columns in the same order as they appear in
+        the group configuration.
+
+        Parameters:
+            groups:
+                A list of tuples in the format:
+                    [
+                        ("GROUP NAME", ["COL1", "COL2"]),
+                        ("ANOTHER GROUP", ["COL3", "COL4"])
+                    ]
+
+        Returns:
+            list:
+                A single ordered list of column names.
+        """
         ordered = []
         for _, cols in groups:
             ordered.extend(cols)
@@ -1542,11 +2228,22 @@ class all_functions:
     @staticmethod
     def try_number_preserve_decimals(x):
         """
-        Convert only when safely numeric:
-        - integer-like -> int
-        - decimal -> float (preserve decimals)
-        Otherwise keep value as-is.
-        Empty -> NA (writes blank).
+        Converts safely numeric values into int or float while preserving non-numeric
+        values unchanged.
+
+        This helper is used before writing data to Excel. It converts integer-like
+        values to int, decimal values to float, and missing or blank values to
+        pd.NA so they appear as blank cells. If a value is not clearly numeric, it
+        is returned as-is.
+
+        Parameters:
+            x:
+                Input value to be converted.
+
+        Returns:
+            int, float, pd.NA, or original value:
+                Converted numeric value when safe, missing value as pd.NA, or the
+                original value if conversion is not safe.
         """
         if x is None or pd.isna(x):
             return pd.NA
@@ -1585,6 +2282,25 @@ class all_functions:
         return x
     
     def convert_columns_try_number_preserve_decimals(self,df, cols):
+        """
+        Applies safe numeric conversion to selected DataFrame columns.
+
+        This method loops through a list of column names and applies
+        try_number_preserve_decimals() only to columns that exist in the DataFrame.
+        It is useful for cleaning numeric identifier columns before writing the
+        final output to Excel.
+
+        Parameters:
+            df:
+                pandas DataFrame containing output data.
+
+            cols:
+                List of column names that should be converted where possible.
+
+        Returns:
+            pandas.DataFrame:
+                The DataFrame with selected columns safely converted.
+        """
         for col in cols:
             if col in df.columns:
                 df[col] = df[col].apply(self.try_number_preserve_decimals)
@@ -1592,6 +2308,41 @@ class all_functions:
     
   
     def apply_grouped_formatting(self, df, sheet_name, ip_mode):
+        """
+        Applies grouped Excel formatting to a DataFrame and writes it to a worksheet.
+
+        This method prepares a DataFrame for final Excel output by ordering columns
+        according to the selected IP mode, converting numeric-looking identifier
+        columns, creating a `For Ingestion` column, applying grouped header bands,
+        formatting column headers, setting column widths, and writing data rows
+        with conditional formatting.
+
+        The formatting behavior depends on `ip_mode`, which determines which column
+        groups are used. Supported modes are expected to come from `self.GROUPS`,
+        such as STANDALONE, SERIES, or EPISODICS.
+
+        The method also adds special formatting for:
+            - Duplicate or unique IDs.
+            - Missing ingestion identifiers.
+            - Identifier values containing pipe characters.
+            - Reltio entity hyperlinks.
+            - IMDb title hyperlinks.
+
+        Parameters:
+            df:
+                pandas DataFrame containing the output data to write.
+
+            sheet_name:
+                Name of the Excel worksheet to create.
+
+            ip_mode:
+                Key used to select the appropriate column grouping configuration
+                from `self.GROUPS`.
+
+        Returns:
+            pandas.DataFrame:
+                The reordered and cleaned DataFrame that was written to Excel.
+        """
         
         groups = self.GROUPS.get(ip_mode, self.GROUPS["STANDALONE"])
         ordered_cols = self.flatten_groups(groups)
@@ -1769,6 +2520,25 @@ class all_functions:
         return df2
 
     def format_no_match(self,df, sheet_name):
+        """
+        Writes no-match records into a formatted Excel worksheet.
+
+        This method creates a new worksheet for records that did not receive a
+        valid match. It applies numeric cleanup to selected columns, writes
+        formatted headers, adjusts column widths, and writes each data cell with
+        border formatting.
+
+        Parameters:
+            df:
+                DataFrame containing no-match records.
+
+            sheet_name:
+                Name of the worksheet to create.
+
+        Returns:
+            None
+                The method writes directly to the workbook.
+        """
         worksheet = self.workbook.add_worksheet(sheet_name)
         self.writer.sheets[sheet_name] = worksheet
 
@@ -1793,6 +2563,32 @@ class all_functions:
                     worksheet.write(r + 1, c, value, self.border_format)
 
     def score_series_matches(self,series_df, input_titles_0, model, cross_model):
+        """
+        Scores candidate series matches against input series titles.
+
+        This method maps each candidate row back to its input series title, normalizes
+        both input and candidate titles, generates embeddings, calculates semantic
+        similarity, applies CrossEncoder scoring for borderline matches, assigns a
+        final match result, ranks candidates per ID, and adds explainability columns.
+
+        Parameters:
+            series_df:
+                DataFrame containing candidate series records.
+
+            input_titles_0:
+                DataFrame containing original input title data keyed by Sno.
+
+            model:
+                SentenceTransformer model used to generate title embeddings.
+
+            cross_model:
+                CrossEncoder model used to rescore borderline matches.
+
+        Returns:
+            pandas.DataFrame:
+                Series match DataFrame with scores, final decisions, rankings,
+                confidence labels, reasons, and evidence.
+       """
         series_df = series_df.copy()
 
         if series_df.empty:
@@ -1875,6 +2671,34 @@ class all_functions:
 
 
     def score_child_matches(self,child_df, input_titles_0, model, cross_model):
+        """
+        Scores episodic or child-title candidates using both parent-series and
+        episode-title matching logic.
+
+        This method compares the input series title against the candidate parent
+        title, and also compares the input episode title against the candidate Atom
+        title. It calculates semantic scores, optional CrossEncoder scores, individual
+        match results, extra-word counts, and a combined final match decision.
+
+        Parameters:
+            child_df:
+                DataFrame containing child or episodic candidate records.
+
+            input_titles_0:
+                DataFrame containing original input data, including SERIES_TITLE
+                and MATCH_TITLE_RAW.
+
+            model:
+                SentenceTransformer model used to generate embeddings.
+
+            cross_model:
+                CrossEncoder model used for borderline match rescoring.
+
+        Returns:
+            pandas.DataFrame:
+                Child match DataFrame with parent and episode scores, combined
+                match result, ranking, confidence, reason, and evidence columns.
+        """
         child_df = child_df.copy()
 
         if child_df.empty:
@@ -2040,6 +2864,26 @@ class all_functions:
 
     @staticmethod
     def filter_children_by_selected_series(child_df, selected_parent_ids):
+        """
+        Filters child candidate records based on selected parent series entities.
+
+        This method keeps child records whose PARENT_ENTITY matches the selected
+        parent IDs. If some input IDs do not have candidates under the selected
+        parents, fallback candidates are retained so those IDs are not completely
+        lost from downstream processing.
+
+        Parameters:
+            child_df:
+                DataFrame containing child candidate records.
+
+            selected_parent_ids:
+                Collection of parent entity IDs selected by the user.
+
+        Returns:
+            pandas.DataFrame:
+                Filtered child candidate DataFrame.
+        """
+
         child_df = child_df.copy()
 
         if child_df.empty:
