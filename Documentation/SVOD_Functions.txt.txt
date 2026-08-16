@@ -1,56 +1,25 @@
 ## LIBRARIES:
 import pandas as pd
-# Data manipulation
 import os
-# File and directory operations
 import tkinter as tk
-# GUI for file dialogs
 from tkinter import filedialog
-# File dialog for selecting files
 from tkinter.filedialog import askdirectory
-# File dialog for selecting directories
 import numpy as np
-# Numerical operations
 from sentence_transformers import SentenceTransformer, util
-# Semantic similarity and embeddings
 import torch
-# PyTorch for tensor operations
 import unicodedata
-# Unicode normalization
 import re
-# Regular expressions
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
-# Excel styling
 from openpyxl.utils import get_column_letter
-# Excel column utilities
 from sentence_transformers import CrossEncoder
-# Cross-encoder for semantic scoring
 import shutil
-# File operations like deleting directories
-
-
-# Model paths for SentenceTransformer and CrossEncoder
+import re
 MODEL_PATH = r"C:\Users\mshanmugam\.cache\huggingface\hub\models--sentence-transformers--all-MiniLM-L6-v2\snapshots\1110a243fdf4706b3f48f1d95db1a4f5529b4d41"
 
 CROSS_PATH = r"C:\Users\mshanmugam\.cache\huggingface\hub\models--cross-encoder--stsb-distilroberta-base\snapshots\6b71347df6e2b34246b53e06d6bce70ef67de368"
 
-
-
 class initial_class:
     def __init__(self, bi_encoder_name="all-MiniLM-L6-v2", cross_encoder_name="cross-encoder/stsb-distilroberta-base"):
-        """
-        Initializes the bi-encoder and cross-encoder models used for semantic
-        matching, similarity scoring, and reranking.
-
-        Parameters
-        ----------
-        bi_encoder_name : str
-            Name or local path of the SentenceTransformer bi-encoder model.
-
-        cross_encoder_name : str
-            Name or local path of the CrossEncoder model used for reranking
-            or pairwise similarity scoring.
-        """
         self.model = SentenceTransformer(MODEL_PATH)
         self.cross_model = CrossEncoder(CROSS_PATH)
     # ============================================================
@@ -58,17 +27,6 @@ class initial_class:
     # ============================================================
 
     def ask_content_type(self):
-        """
-        Prompts the user to select the SVOD template type.
-
-        The method accepts only 'series' or 'movie'. It continues prompting
-        until a valid value is entered.
-
-        Returns
-        -------
-        str: The selected template type. Possible values are 'series' or 'movie'.
-        """
-
         while True:
             value = input("Enter template type [series/movie]: ").strip().lower()
             if value in {"series", "movie"}:
@@ -112,26 +70,6 @@ class initial_class:
 
     @staticmethod
     def pick_input_folder(title="Select folder with WBTV / WB2B / Foundry files"):
-        """
-        Opens a folder selection dialog for choosing the input folder.
-
-        This function creates a temporary Tkinter root window, hides it, and displays
-        a folder picker dialog. The selected folder path is returned and can be used
-        to locate the WBTV, WB2B, or Foundry files required for SVOD template creation.
-
-        Parameters
-        ----------
-        title : str, optional
-            The title displayed on the folder selection dialog.
-            Defaults to "Select folder with WBTV / WB2B / Foundry files".
-
-        Returns
-        -------
-        str
-            The selected folder path. If the user cancels the dialog, an empty
-            string is returned.
-        """
-
         root = tk.Tk()
         root.withdraw()
         root.attributes("-topmost", True)   # brings dialog to front (Windows helpful)
@@ -143,27 +81,6 @@ class initial_class:
     
     @staticmethod
     def select_output_folder():
-        """
-        Opens a folder selection dialog for choosing the output folder.
-
-        This function allows the user to select a folder where the generated SVOD
-        output files will be saved. After a folder is selected, the function clears
-        all existing files and subfolders inside that folder before returning the
-        selected folder path.
-
-        Returns
-        -------
-        str or None
-            The selected output folder path if a folder is selected.
-            Returns None if the user cancels the folder selection dialog.
-
-        Side Effects
-        ------------
-        Opens a graphical folder selection dialog.
-        Deletes all files, symbolic links, and subfolders inside the selected folder.
-        Prints status messages to the console.
-        """
-
         root = tk.Tk()
         root.withdraw()
         root.attributes("-topmost", True)
@@ -200,27 +117,6 @@ class initial_class:
 
     @staticmethod
     def normalize_title(title):
-        """
-        Normalizes a title value for consistent comparison and matching.
-
-        This function converts the input title into a standardized lowercase string.
-        It handles missing values, normalizes Unicode characters, removes hidden Excel
-        spacing characters, removes punctuation and standalone four-digit years, and
-        collapses multiple spaces into a single space.
-
-        Parameters
-        ----------
-        title : any
-            The title value to normalize. This can be a string, number, missing value,
-            or any value that can be converted to a string.
-
-        Returns
-        -------
-        str
-            A cleaned and normalized title string. Returns an empty string if the
-            input value is missing.
-        """
-
         if pd.isna(title):
             return ""
         s = str(title)
@@ -245,26 +141,6 @@ class initial_class:
     # ============================================================
     @staticmethod
     def detect_sources(input_folder: str):
-        """
-        Detects source files in the selected input folder.
-
-        This function scans all files in the provided input folder and identifies
-        files related to WBTV, WB2B, and Foundry based on keywords found in each
-        file name. Matching file paths are stored in a dictionary using standardized
-        source names as keys.
-
-        Parameters
-        ----------
-        input_folder : str
-            The folder path where the source files are located.
-
-        Returns
-        -------
-        dict
-            A dictionary containing detected source names and their full file paths.
-            Possible keys are "WBTV", "WB2B", and "FOUNDRY".
-        """
-
         files = os.listdir(input_folder)
         sources = {}
         for f in files:
@@ -283,57 +159,7 @@ class load_and_match(initial_class):
     # ✅ LOAD FOUNDRY (SERIES + MOVIE SUPPORT)
     # ============================================================
     def load_foundry(self, foundry_path: str, content_type: str = "series"):
-        """
-        Loads and prepares Foundry source data for SVOD template creation.
-
-        This method reads a Foundry file from the provided path, supports CSV and
-        Excel formats, standardizes season and episode values, validates that the
-        required title column exists, and creates additional columns used later in
-        the SVOD template generation process.
-
-        Based on the selected content type, the method separates the Foundry data
-        into series or movie-related datasets.
-
-        Parameters
-        ----------
-        foundry_path : str
-            The full file path of the Foundry source file. The file must be in CSV,
-            XLSX, or XLS format.
-
-        content_type : str, optional
-            The type of SVOD template being created. Supported values are "series"
-            and "movie". Defaults to "series".
-
-        Returns
-        -------
-        tuple
-            A tuple containing four DataFrames:
-
-            foundry : pandas.DataFrame
-                The cleaned Foundry data with selected and standardized columns.
-
-            series_season : pandas.DataFrame
-                Rows where asset-type is "series" or "season". This is populated
-                only when content_type is "series".
-
-            episodes : pandas.DataFrame
-                Rows where asset-type is "episode". This is populated only when
-                content_type is "series".
-
-            movies : pandas.DataFrame
-                Rows identified as movie, feature, or film content. This is populated
-                only when content_type is not "series".
-
-        Raises
-        ------
-        ValueError
-            Raised when the Foundry file type is not CSV, XLSX, or XLS.
-
-        KeyError
-            Raised when the required "main-title" column is not found in the Foundry
-            file.
-        """
-
+        
         ext = os.path.splitext(foundry_path)[-1].lower()
 
         if ext == ".csv":
@@ -404,60 +230,6 @@ class load_and_match(initial_class):
     # 🔒 WBTV LOADER (SERIES + MOVIE SUPPORT)
     # ============================================================
     def load_wbtv(self, input_wbtv: str, content_type: str = "series", series_season: pd.DataFrame = None):
-        """
-        Loads and prepares WBTV source data for SVOD template creation.
-
-        This method reads the WBTV input file from the provided path and supports
-        CSV, XLSX, and XLS file formats. The processing logic changes based on the
-        selected content type.
-
-        For series content, the method keeps the required WBTV series and episode
-        columns, standardizes season and episode fields, sorts the data, and
-        optionally merges it with Foundry series or season data.
-
-        For movie content, the method identifies the available title, release date,
-        MPM number, and synopsis columns using flexible column-name matching. It
-        then standardizes the output columns and assigns default Season and Episode
-        values as 0.
-
-        Parameters
-        ----------
-        input_wbtv : str
-            The full file path of the WBTV source file. The file must be in CSV,
-            XLSX, or XLS format.
-
-        content_type : str, optional
-            The type of SVOD template being created. Supported values are "series"
-            and "movie". Defaults to "series".
-
-        series_season : pandas.DataFrame, optional
-            Foundry series or season data used for merging with WBTV data when
-            content_type is "series". Defaults to None.
-
-        Returns
-        -------
-        pandas.DataFrame
-            The cleaned and standardized WBTV DataFrame.
-
-            In series mode, the returned DataFrame contains season and episode
-            information and may include merged Foundry columns if series_season is
-            provided.
-
-            In movie mode, the returned DataFrame contains standardized movie title,
-            release date, MPM number, synopsis fields, and default Season and Episode
-            values.
-
-        Raises
-        ------
-        ValueError
-            Raised when the WBTV file type is not CSV, XLSX, or XLS.
-
-        ValueError
-            Raised by first_existing_column when a required movie title column is
-            not found.
-        """
-
-
         ext = os.path.splitext(input_wbtv)[-1].lower()
 
         if ext == ".csv":
@@ -558,66 +330,6 @@ class load_and_match(initial_class):
     # 🔒 WB2B LOADER (SERIES + MOVIE SUPPORT)
     # ============================================================
     def load_wb2b(self,input_wb2b: str, content_type: str = "series", series_season: pd.DataFrame = None, has_wbtv: bool = False):
-        """
-        Loads and prepares WB2B source data for SVOD template creation.
-
-        This method reads the WB2B input file from the provided path and supports
-        CSV, XLSX, and XLS file formats. The processing logic changes based on the
-        selected content type.
-
-        For series content, the method selects the required WB2B episode metadata
-        columns, standardizes season and episode fields, renames columns to match
-        the SVOD template structure, formats the primary release date, sorts the
-        data by season and episode, and optionally merges the data with Foundry
-        series or season data when WBTV data is not available.
-
-        For movie content, the method identifies the available title, release date,
-        ID, and synopsis columns using flexible column-name matching. It then
-        standardizes the output column names and assigns default Season and Episode
-        values as 0.
-
-        Parameters
-        ----------
-        input_wb2b : str
-            The full file path of the WB2B source file. The file must be in CSV,
-            XLSX, or XLS format.
-
-        content_type : str, optional
-            The type of SVOD template being created. Supported values are "series"
-            and "movie". Defaults to "series".
-
-        series_season : pandas.DataFrame, optional
-            Foundry series or season data used for merging with WB2B data when
-            content_type is "series" and WBTV data is not available. Defaults to None.
-
-        has_wbtv : bool, optional
-            Indicates whether WBTV data is available. If False, WB2B data may be
-            merged with Foundry series or season data. Defaults to False.
-
-        Returns
-        -------
-        pandas.DataFrame
-            The cleaned and standardized WB2B DataFrame.
-
-            In series mode, the returned DataFrame contains standardized season,
-            episode, title, release date, MPM number, and synopsis information.
-            It may also include merged Foundry columns if WBTV data is not available
-            and series_season data is provided.
-
-            In movie mode, the returned DataFrame contains standardized movie title,
-            release date, MPM number, synopsis fields, and default Season and Episode
-            values.
-
-        Raises
-        ------
-        ValueError
-            Raised when the WB2B file type is not CSV, XLSX, or XLS.
-
-        ValueError
-            Raised by first_existing_column when a required movie title column is
-            not found.
-        """
-
         ext = os.path.splitext(input_wb2b)[-1].lower()
 
         if ext == ".csv":
@@ -725,51 +437,11 @@ class load_and_match(initial_class):
     # ============================================================
     @staticmethod
     def extract_number(text):
-        """
-        Extracts the first numeric value from the provided text.
-
-        This function converts the input value to a string, searches for the first
-        sequence of digits, and returns it as an integer. If no number is found,
-        the function returns None.
-
-        Parameters
-        ----------
-        text : any
-            The input value from which a number needs to be extracted.
-
-        Returns
-        -------
-        int or None
-            The first number found in the input text as an integer.
-            Returns None if no numeric value is found.
-        """
-
         match = re.search(r"\d+", str(text))
         return int(match.group()) if match else None
 
     @staticmethod
     def is_generic_episode(title):
-        """
-        Checks whether a title is a generic episode title.
-
-        This method identifies titles that follow common generic episode naming
-        patterns such as "Episode 1", "Ep. 1", "E01", "E-01", "E:01", or "S1E1".
-        It also allows optional trailing descriptive text such as ": Pilot" or
-        "- Pilot".
-
-        Parameters
-        ----------
-        title : any
-            The title value to check. This can be a string, missing value, or any
-            value that can be converted to a string.
-
-        Returns
-        -------
-        bool
-            True if the title matches a generic episode naming pattern.
-            False if the title is missing or does not match the expected pattern.
-        """
-
         if pd.isna(title):
             return False
 
@@ -807,88 +479,8 @@ class load_and_match(initial_class):
         top_k: int = 5,
         ce_threshold: float = 0.75,
         model=None,
-        cross_model=None):
-
-        """
-        Performs semantic title matching between two movie DataFrames and merges
-        matched metadata from the right DataFrame into the left DataFrame.
-
-        This method uses a bi-encoder model to generate title embeddings and find
-        the top candidate matches based on cosine similarity. It then uses a
-        cross-encoder model to rerank those candidates and selects the best match
-        when the cross-encoder score meets or exceeds the configured threshold.
-
-        Each right-side record is matched only once by tracking already-used right
-        DataFrame indexes. Matched columns from the right DataFrame are merged back
-        into the left DataFrame using the left identifier column.
-
-        Parameters
-        ----------
-        left_df : pandas.DataFrame
-            The primary DataFrame containing movie records that need to be matched.
-
-        right_df : pandas.DataFrame
-            The reference DataFrame containing candidate movie records and metadata
-            to be pulled into the left DataFrame.
-
-        normalize_title_fn : callable
-            Function used to normalize title values before semantic matching.
-
-        left_id_col : str
-            Unique identifier column in the left DataFrame used for merging match
-            results back into the left DataFrame.
-
-        left_title_col : str
-            Title column in the left DataFrame used for semantic matching.
-
-        right_title_col : str
-            Title column in the right DataFrame used for semantic matching.
-
-        right_pull_cols : tuple, optional
-            Columns to pull from the matched right DataFrame record into the output.
-            Defaults to Foundry-related metadata columns such as uuid, asset-type,
-            main-title, descriptions, Season, and Episode.
-
-        top_k : int, optional
-            Number of top cosine-similarity candidates to evaluate with the
-            cross-encoder model. Defaults to 5.
-
-        ce_threshold : float, optional
-            Minimum cross-encoder score required to accept a match.
-            Defaults to 0.75.
-
-        model : optional
-            Bi-encoder model used to generate title embeddings. If not provided,
-            self.model is used.
-
-        cross_model : optional
-            Cross-encoder model used to score title pairs. If not provided,
-            self.cross_model is used.
-
-        Returns
-        -------
-        tuple
-            A tuple containing five values:
-
-            merged : pandas.DataFrame
-                The left DataFrame enriched with matched columns from the right
-                DataFrame.
-
-            matches_df : pandas.DataFrame
-                DataFrame containing the accepted semantic matches and pulled
-                right-side metadata.
-
-            used_right : set
-                Set of right DataFrame indexes that were already matched.
-
-            model
-                The bi-encoder model used for embedding generation.
-
-            cross_model
-                The cross-encoder model used for reranking candidate matches.
-        """
-
-
+        cross_model=None
+    ):
         if model is None:
             model = self.model
         if cross_model is None:
@@ -947,58 +539,12 @@ class load_and_match(initial_class):
 
         merged = merged[[c for c in merged.columns if not c.endswith("_df2")]]
         return merged, matches_df, used_right, model, cross_model
-    
 
 class matching_pipeline(load_and_match):
     # ============================================================
     # ✅ MOVIE WRAPPERS
     # ============================================================
     def match_wbtv_to_foundry_movies(self, WBTV_0, Movies, model=None, cross_model=None, top_k=5, ce_threshold=0.75):
-        """
-        Matches WBTV movie records with Foundry movie records using semantic title matching.
-
-        This method calls semantic_movie_match_and_merge to compare WBTV movie titles
-        against Foundry movie titles. It uses normalized title values, a bi-encoder
-        model for similarity search, and a cross-encoder model for reranking the best
-        candidate matches.
-
-        Matched Foundry metadata such as uuid, asset-type, main-title, descriptions,
-        Season, and Episode is merged into the WBTV movie DataFrame.
-
-        Parameters
-        ----------
-        WBTV_0 : pandas.DataFrame
-            The WBTV movie DataFrame containing the records that need to be matched.
-
-        Movies : pandas.DataFrame
-            The Foundry movie DataFrame containing reference movie records and
-            metadata to be matched against WBTV records.
-
-        model : optional
-            The bi-encoder model used to generate title embeddings. If not provided,
-            the default model from the class instance is used.
-
-        cross_model : optional
-            The cross-encoder model used to score and rerank title match candidates.
-            If not provided, the default cross-encoder model from the class instance
-            is used.
-
-        top_k : int, optional
-            The number of top semantic similarity candidates to evaluate using the
-            cross-encoder model. Defaults to 5.
-
-        ce_threshold : float, optional
-            The minimum cross-encoder score required to accept a semantic match.
-            Defaults to 0.75.
-
-        Returns
-        -------
-        tuple
-            The result returned by semantic_movie_match_and_merge, containing the
-            merged WBTV DataFrame, matched records DataFrame, matched Foundry indexes,
-            bi-encoder model, and cross-encoder model.
-        """
-
         return self.semantic_movie_match_and_merge(
             left_df=WBTV_0,
             right_df=Movies,
@@ -1020,51 +566,6 @@ class matching_pipeline(load_and_match):
 
 
     def match_wb2b_to_foundry_movies(self, WB2B_0, Movies, model=None, cross_model=None, top_k=5, ce_threshold=0.75):
-        """
-        Matches WB2B movie records with Foundry movie records using semantic title matching.
-
-        This method calls semantic_movie_match_and_merge to compare WB2B movie titles
-        against Foundry movie titles. It uses normalized title values, a bi-encoder
-        model for similarity search, and a cross-encoder model for reranking the best
-        candidate matches.
-
-        Matched Foundry metadata such as uuid, asset-type, main-title, descriptions,
-        Season, and Episode is merged into the WB2B movie DataFrame.
-
-        Parameters
-        ----------
-        WB2B_0 : pandas.DataFrame
-            The WB2B movie DataFrame containing the records that need to be matched.
-
-        Movies : pandas.DataFrame
-            The Foundry movie DataFrame containing reference movie records and
-            metadata to be matched against WB2B records.
-
-        model : optional
-            The bi-encoder model used to generate title embeddings. If not provided,
-            the default model from the class instance is used.
-
-        cross_model : optional
-            The cross-encoder model used to score and rerank title match candidates.
-            If not provided, the default cross-encoder model from the class instance
-            is used.
-
-        top_k : int, optional
-            The number of top semantic similarity candidates to evaluate using the
-            cross-encoder model. Defaults to 5.
-
-        ce_threshold : float, optional
-            The minimum cross-encoder score required to accept a semantic match.
-            Defaults to 0.75.
-
-        Returns
-        -------
-        tuple
-            The result returned by semantic_movie_match_and_merge, containing the
-            merged WB2B DataFrame, matched records DataFrame, matched Foundry indexes,
-            bi-encoder model, and cross-encoder model.
-        """
-
         return self.semantic_movie_match_and_merge(
             left_df=WB2B_0,
             right_df=Movies,
@@ -1093,67 +594,6 @@ class matching_pipeline(load_and_match):
         top_k: int = 5,
         ce_threshold: float = 0.75,
     ):
-        """
-        Matches WBTV movie records with WB2B movie records using semantic title matching.
-
-        This method compares WBTV movie titles against WB2B movie titles and merges
-        selected WB2B metadata into the WBTV DataFrame. It uses semantic matching
-        through the semantic_movie_match_and_merge method, which applies a bi-encoder
-        model for candidate selection and a cross-encoder model for match scoring.
-
-        The original WBTV row order is preserved by adding a temporary ordering column
-        before matching and removing it after the merge is completed.
-
-        Parameters
-        ----------
-        WBTV_0 : pandas.DataFrame
-            The WBTV movie DataFrame containing the primary records to be matched.
-
-        WB2B_0 : pandas.DataFrame
-            The WB2B movie DataFrame containing reference records and metadata to
-            merge into the WBTV records.
-
-        model : optional
-            The bi-encoder model used to generate title embeddings. If not provided,
-            the default model from the class instance is used.
-
-        cross_model : optional
-            The cross-encoder model used to score and rerank candidate title matches.
-            If not provided, the default cross-encoder model from the class instance
-            is used.
-
-        top_k : int, optional
-            The number of top semantic similarity candidates to evaluate using the
-            cross-encoder model. Defaults to 5.
-
-        ce_threshold : float, optional
-            The minimum cross-encoder score required to accept a semantic match.
-            Defaults to 0.75.
-
-        Returns
-        -------
-        tuple
-            A tuple containing five values:
-
-            final : pandas.DataFrame
-                The WBTV DataFrame enriched with matched WB2B metadata while
-                preserving the original WBTV row order.
-
-            matches_df : pandas.DataFrame
-                DataFrame containing the accepted semantic matches and selected
-                WB2B metadata.
-
-            used_right : set
-                Set of WB2B DataFrame indexes that were matched.
-
-            model
-                The bi-encoder model used for semantic embedding generation.
-
-            cross_model
-                The cross-encoder model used for reranking and scoring matches.
-        """
-
-
         wb2b_pull_cols = [
             "wb2b epiosde name",
             "Synopsis (60)",
@@ -1210,102 +650,11 @@ class matching_pipeline(load_and_match):
         cross_model=None
     ):
         """
-        Matches episode records between two DataFrames using semantic title matching
-        and fallback Season plus Episode matching.
-
-        This method compares rows from the left DataFrame with rows from the right
-        DataFrame. It first attempts to find matches within the same season using
-        cosine similarity and cross-encoder scoring. If no acceptable match is found,
-        it expands the search across all seasons. If semantic matching still fails,
-        it falls back to an exact Season and Episode match.
-
-        The method normalizes titles, extracts numeric values from titles, detects
-        generic episode title patterns, prevents numeric conflicts for generic
-        episode titles, and tracks right-side records that have already been matched
-        so they are not reused.
-
-        Matched metadata from the right DataFrame is merged back into the left
-        DataFrame using the provided left identifier column.
-
-        Parameters
-        ----------
-        left_df : pandas.DataFrame
-            The primary DataFrame containing episode records that need to be matched.
-
-        right_df : pandas.DataFrame
-            The reference DataFrame containing candidate episode records and metadata
-            to be merged into the left DataFrame.
-
-        normalize_title_fn : callable
-            Function used to normalize title values before semantic comparison.
-
-        left_id_col : str
-            Identifier column in the left DataFrame used to merge match results back
-            into the original left DataFrame.
-
-        left_title_col : str
-            Title column in the left DataFrame used for semantic matching.
-
-        right_title_col : str
-            Title column in the right DataFrame used for semantic matching.
-
-        season_col : str, optional
-            Column name used to identify the season number in both DataFrames.
-            Defaults to "Season".
-
-        episode_col : str, optional
-            Column name used to identify the episode number in both DataFrames.
-            Defaults to "Episode".
-
-        right_pull_cols : tuple, optional
-            Columns to pull from the matched right DataFrame record into the output.
-            Defaults to Foundry metadata and description columns.
-
-        top_k : int, optional
-            Number of top cosine-similarity candidates to evaluate with the
-            cross-encoder model. Defaults to 5.
-
-        ce_threshold : float, optional
-            Minimum cross-encoder score required to accept a semantic match.
-            Defaults to 0.60.
-
-        fallback_cosine_threshold : float, optional
-            Minimum cosine similarity value intended for fallback quality control.
-            Defaults to 0.30.
-
-        exclude_left_episode_zero : bool, optional
-            If True, rows with Episode equal to 0 are excluded from the semantic
-            matching pool. Defaults to True.
-
-        model : optional
-            Bi-encoder model used to generate title embeddings. If not provided,
-            self.model is used.
-
-        cross_model : optional
-            Cross-encoder model used to score title pairs. If not provided,
-            self.cross_model is used.
-
-        Returns
-        -------
-        tuple
-            A tuple containing five values:
-
-            merged : pandas.DataFrame
-                The left DataFrame enriched with matched metadata from the right
-                DataFrame.
-
-            matches_df : pandas.DataFrame
-                DataFrame containing accepted matches, pulled right-side metadata,
-                and match type.
-
-            used_right : set
-                Set of right DataFrame indexes that were already matched.
-
-            model
-                The bi-encoder model used for embedding generation.
-
-            cross_model
-                The cross-encoder model used for reranking and scoring matches.
+        Matches left_df rows to right_df rows using:
+        1) SAME SEASON  — cosine topK + cross-encoder (stsb 0-1 scores)
+        2) ALL SEASONS  — cosine topK + cross-encoder
+        3) FALLBACK     — exact Season+Episode with minimum cosine gate
+        Merges right_pull_cols + match_type back into left_df using left_id_col.
         """
 
         # ── init models once ──────────────────────────────────────────────────────
@@ -1463,52 +812,6 @@ class matching_pipeline(load_and_match):
     # ✅ SPECIFIC WRAPPERS (JUST TO KEEP NAMES YOU WANT)
     # ============================================================
     def match_wbtv_to_foundry_episodes(self,WBTV_0, Episodes, model=None, cross_model=None, top_k=5, ce_threshold=0.75):
-        """
-        Matches WBTV episode records with Foundry episode records using semantic
-        title matching.
-
-        This method calls semantic_episode_match_and_merge to compare WBTV episode
-        titles against Foundry episode titles. It uses normalized title values, a
-        bi-encoder model for candidate selection, and a cross-encoder model for
-        scoring and reranking possible matches.
-
-        Matched Foundry metadata such as uuid, asset-type, main-title, descriptions,
-        Season, and Episode is merged into the WBTV episode DataFrame.
-
-        Parameters
-        ----------
-        WBTV_0 : pandas.DataFrame
-            The WBTV episode DataFrame containing records that need to be matched.
-
-        Episodes : pandas.DataFrame
-            The Foundry episode DataFrame containing reference episode records and
-            metadata to be matched against WBTV records.
-
-        model : optional
-            The bi-encoder model used to generate semantic title embeddings.
-            If not provided, the default model from the class instance is used.
-
-        cross_model : optional
-            The cross-encoder model used to score and rerank title match candidates.
-            If not provided, the default cross-encoder model from the class instance
-            is used.
-
-        top_k : int, optional
-            The number of top cosine-similarity candidates to evaluate using the
-            cross-encoder model. Defaults to 5.
-
-        ce_threshold : float, optional
-            The minimum cross-encoder score required to accept a semantic match.
-            Defaults to 0.75.
-
-        Returns
-        -------
-        tuple
-            The result returned by semantic_episode_match_and_merge, containing the
-            merged WBTV DataFrame, matched records DataFrame, matched Foundry indexes,
-            bi-encoder model, and cross-encoder model.
-        """
-
         return self.semantic_episode_match_and_merge(
             left_df=WBTV_0,
             right_df=Episodes,
@@ -1529,52 +832,6 @@ class matching_pipeline(load_and_match):
 
 
     def match_wb2b_to_foundry_episodes(self, WB2B_0, Episodes, model=None, cross_model=None, top_k=5, ce_threshold=0.75):
-        """
-        Matches WB2B episode records with Foundry episode records using semantic
-        title matching.
-
-        This method calls semantic_episode_match_and_merge to compare WB2B episode
-        titles against Foundry episode titles. It uses normalized title values, a
-        bi-encoder model for candidate selection, and a cross-encoder model for
-        scoring and reranking possible matches.
-
-        Matched Foundry metadata such as uuid, asset-type, main-title, descriptions,
-        Season, and Episode is merged into the WB2B episode DataFrame.
-
-        Parameters
-        ----------
-        WB2B_0 : pandas.DataFrame
-            The WB2B episode DataFrame containing records that need to be matched.
-
-        Episodes : pandas.DataFrame
-            The Foundry episode DataFrame containing reference episode records and
-            metadata to be matched against WB2B records.
-
-        model : optional
-            The bi-encoder model used to generate semantic title embeddings.
-            If not provided, the default model from the class instance is used.
-
-        cross_model : optional
-            The cross-encoder model used to score and rerank title match candidates.
-            If not provided, the default cross-encoder model from the class instance
-            is used.
-
-        top_k : int, optional
-            The number of top cosine-similarity candidates to evaluate using the
-            cross-encoder model. Defaults to 5.
-
-        ce_threshold : float, optional
-            The minimum cross-encoder score required to accept a semantic match.
-            Defaults to 0.75.
-
-        Returns
-        -------
-        tuple
-            The result returned by semantic_episode_match_and_merge, containing the
-            merged WB2B DataFrame, matched records DataFrame, matched Foundry indexes,
-            bi-encoder model, and cross-encoder model.
-        """
-
         return self.semantic_episode_match_and_merge(
             left_df=WB2B_0,
             right_df=Episodes,
@@ -1602,68 +859,6 @@ class matching_pipeline(load_and_match):
         top_k: int = 5,
         ce_threshold: float = 0.75,
     ):
-        """
-        Matches WBTV episode records with WB2B episode records.
-
-        This method handles both series or season-level rows and episode-level rows.
-        Rows where Episode is 0 are treated as series or season records and are
-        matched directly using Season and Episode. Rows where Episode is greater than
-        0 are matched using semantic title matching through the
-        semantic_episode_match_and_merge method.
-
-        The method preserves the original WBTV row order by adding a temporary
-        ordering column before processing and removing it after the final DataFrame
-        is created.
-
-        Parameters
-        ----------
-        WBTV_0 : pandas.DataFrame
-            The WBTV DataFrame containing records to be matched with WB2B data.
-
-        WB2B_0 : pandas.DataFrame
-            The WB2B DataFrame containing reference records and metadata to be
-            merged into the WBTV records.
-
-        model : optional
-            The bi-encoder model used to generate semantic title embeddings.
-            If not provided, the default model from the class instance is used.
-
-        cross_model : optional
-            The cross-encoder model used to score and rerank candidate title matches.
-            If not provided, the default cross-encoder model from the class instance
-            is used.
-
-        top_k : int, optional
-            The number of top cosine-similarity candidates to evaluate using the
-            cross-encoder model. Defaults to 5.
-
-        ce_threshold : float, optional
-            The minimum cross-encoder score required to accept a semantic match.
-            Defaults to 0.75.
-
-        Returns
-        -------
-        tuple
-            A tuple containing five values:
-
-            final : pandas.DataFrame
-                The WBTV DataFrame enriched with matched WB2B metadata while
-                preserving the original WBTV row order.
-
-            matches_df : pandas.DataFrame
-                DataFrame containing the accepted semantic episode matches.
-
-            used_right : set
-                Set of WB2B DataFrame indexes that were matched during semantic
-                episode matching.
-
-            model
-                The bi-encoder model used for semantic embedding generation.
-
-            cross_model
-                The cross-encoder model used for reranking and scoring matches.
-        """
-
         wb2b_pull_cols = [
             "Season",
             "Episode",
@@ -1735,56 +930,9 @@ class matching_pipeline(load_and_match):
         ce_threshold: float = 0.75,
     ):
         """
-        Runs the end-to-end SVOD template creation pipeline.
-
-        This method detects available source files from the input folder, loads the
-        required datasets, routes the processing based on the selected content type,
-        and returns the final prepared DataFrame.
-
-        The pipeline supports both series and movie workflows. It can process data
-        from WBTV, WB2B, and Foundry sources in different combinations. When multiple
-        sources are available, the method performs matching and merging between the
-        sources using semantic matching methods.
-
-        Parameters
-        ----------
-        input_folder : str, optional
-            Folder path containing the source files. The folder should contain files
-            with names that include WBTV, WB2B, or Foundry. If not provided, the user
-            is prompted to select a folder.
-
-        content_type : str, optional
-            Type of SVOD template to create. Supported values are "series" and
-            "movie". If not provided, the user is prompted to enter the content type.
-
-        top_k : int, optional
-            Number of top semantic similarity candidates to evaluate during matching.
-            Defaults to 5.
-
-        ce_threshold : float, optional
-            Minimum cross-encoder score required to accept a semantic match.
-            Defaults to 0.75.
-
-        Returns
-        -------
-        pandas.DataFrame
-            The final DataFrame generated from the available source files and the
-            selected content type.
-
-            For series content, the output may include matched and merged episode,
-            season, WBTV, WB2B, and Foundry data.
-
-            For movie content, the output may include matched and merged movie-level
-            WBTV, WB2B, and Foundry data.
-
-        Raises
-        ------
-        ValueError
-            Raised when no input folder is selected.
-
-        ValueError
-            Raised when no valid source files are detected in the input folder.
-            Valid source filenames must contain WBTV, WB2B, or Foundry.
+        content_type:
+        - series
+        - movie
         """
 
         if content_type is None:
@@ -1923,26 +1071,6 @@ class matching_pipeline(load_and_match):
     # =========================
     @staticmethod
     def pick_multilang_folder(title="Select folder with Multilanguages from Foundry"):
-        """
-        Opens a folder selection dialog for choosing the Foundry multilanguage folder.
-
-        This function creates a temporary Tkinter root window, hides it, and displays
-        a folder picker dialog. The selected folder path is returned and can be used
-        to locate multilanguage files exported from Foundry.
-
-        Parameters
-        ----------
-        title : str, optional
-            The title displayed on the folder selection dialog.
-            Defaults to "Select folder with Multilanguages from Foundry".
-
-        Returns
-        -------
-        str
-            The selected multilanguage folder path. If the user cancels the dialog,
-            an empty string is returned.
-        """
-
         root = tk.Tk()
         root.withdraw()
         root.attributes("-topmost", True)   # brings dialog to front (Windows helpful)
@@ -1958,40 +1086,6 @@ class matching_pipeline(load_and_match):
     # =========================
     @staticmethod
     def char_limit(target, df, en="no"):
-        """
-        Selects the best description text within a specified character limit.
-
-        This function checks a prioritized list of description or synopsis columns
-        in the provided DataFrame and selects the longest available text value that
-        does not exceed the target character limit.
-
-        When English source fields are enabled, the function considers both WBTV or
-        WB2B synopsis columns and Foundry description columns. Otherwise, it only
-        considers Foundry description columns.
-
-        Parameters
-        ----------
-        target : int
-            Maximum allowed character length for the selected text.
-
-        df : pandas.DataFrame
-            DataFrame containing description or synopsis columns.
-
-        en : str, optional
-            Determines which set of columns should be considered.
-            If set to "yes", both English synopsis fields and Foundry description
-            fields are checked. If set to any other value, only Foundry description
-            fields are checked. Defaults to "no".
-
-        Returns
-        -------
-        list
-            A list of selected text values, one for each row in the DataFrame.
-            Each selected value is the longest available text that is within the
-            target character limit. If no valid text is found for a row, an empty
-            string is returned for that row.
-        """
-
         if en == "yes":
             preferred_cols = [
                 "Synopsis (full)", "Synopsis (log line)", "Synopsis (180)",
@@ -2032,36 +1126,11 @@ class matching_pipeline(load_and_match):
     @staticmethod
     def format_sheet_openpyxl(ws):
         """
-        Applies formatting and validation highlighting to an openpyxl worksheet.
-
-        This function formats the worksheet header row, applies borders and text
-        alignment to all cells, freezes the first row, enables auto-filtering, adjusts
-        column widths, and highlights invalid synopsis or description cells based on
-        character limits found in the column headers.
-
-        Validation columns are detected dynamically by checking whether a header ends
-        with a pattern such as "(250 Character Limit)" or "(500 Character Limit)".
-        Any empty cell or cell value that exceeds the detected character limit is
-        highlighted with an error fill color.
-
-        Parameters
-        ----------
-        ws : openpyxl.worksheet.worksheet.Worksheet
-            The worksheet object to format and validate.
-
-        Returns
-        -------
-        None
-            This function does not return a value. It modifies the worksheet in place.
-
-        Side Effects
-        ------------
-        Applies header styling, borders, alignment, freeze panes, auto-filtering,
-        dynamic validation highlighting, and column width adjustments to the worksheet.
-        Prints a summary message showing the sheet name, number of validation columns,
-        and number of highlighted cells.
+        Apply header formatting, borders, auto width,
+        and highlight invalid synopsis cells dynamically
+        based on headers containing:
+        (250 Character Limit), (500 Character Limit), etc.
         """
-
 
         import re
         from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
@@ -2177,25 +1246,6 @@ class matching_pipeline(load_and_match):
     # =========================
     @staticmethod
     def clean_text(series):
-        """
-        Cleans text values in a pandas Series.
-
-        This function converts all values in the Series to strings, removes encoded
-        carriage return and line break markers commonly found in Excel exports, and
-        trims leading and trailing spaces.
-
-        Parameters
-        ----------
-        series : pandas.Series
-            The Series containing text values to clean.
-
-        Returns
-        -------
-        pandas.Series
-            A cleaned Series with encoded line break markers removed and whitespace
-            trimmed.
-        """
-
         return (
             series.astype(str)
             .str.replace(r'_x000D_', '', regex=False)
@@ -2205,28 +1255,6 @@ class matching_pipeline(load_and_match):
     
     @staticmethod
     def availability_status(series):
-        """
-        Determines the availability status of values in a pandas Series.
-
-        This method checks whether the Series is fully populated, partially populated,
-        or completely unavailable based on null and empty string values.
-
-        Parameters
-        ----------
-        series : pandas.Series
-            The Series to evaluate for value availability.
-
-        Returns
-        -------
-        str
-            Availability status of the Series.
-
-            Possible values are:
-            - "Fully available" when all values are non-null and non-empty.
-            - "Partially available" when some values are available.
-            - "Not available" when all values are null or empty.
-        """
-
         if series.isna().all():
             return "Not available"
 
@@ -2240,35 +1268,6 @@ class matching_pipeline(load_and_match):
             return "Not available"
 
     def synopsis_status(self,series, max_len):
-        """
-        Determines the synopsis availability and length validation status.
-
-        This method cleans the provided synopsis text values, checks their character
-        lengths, and returns a status indicating whether the synopsis is available,
-        missing, or exceeds the allowed character limit.
-
-        Parameters
-        ----------
-        series : pandas.Series
-            The Series containing synopsis or description text values.
-
-        max_len : int
-            The maximum allowed character length for the synopsis text.
-
-        Returns
-        -------
-        str
-            Synopsis validation status.
-
-            Possible values are:
-            - "Not available" when all values are null.
-            - "Exceed" when any cleaned value exceeds the maximum allowed length.
-            - "Synopsis Missing" when any cleaned value is shorter than 5 characters
-            or when one or more values are missing.
-            - "All Synopsis Available" when all values are available and within the
-            allowed character limit.
-        """
-
         if series.isna().all():
             return "Not available"
 
@@ -2286,30 +1285,6 @@ class matching_pipeline(load_and_match):
     
     @staticmethod
     def conditional_word_count(base_col, dependent_col):
-        """
-        Counts words in one column only when the corresponding dependent value is missing.
-
-        This method iterates through paired values from a base column and a dependent
-        column. It counts the words in the base column only for rows where the
-        corresponding dependent column value is null.
-
-        Parameters
-        ----------
-        base_col : iterable
-            The column or iterable containing text values whose words need to be
-            counted.
-
-        dependent_col : iterable
-            The column or iterable used as the condition for counting. Words are
-            counted only when the corresponding value in this column is missing.
-
-        Returns
-        -------
-        int
-            Total word count from base_col values where the corresponding
-            dependent_col value is null.
-        """
-
         return sum(
             len(str(text).split())
             for text, dep in zip(base_col, dependent_col)

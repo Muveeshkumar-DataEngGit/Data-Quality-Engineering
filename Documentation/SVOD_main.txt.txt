@@ -1,0 +1,606 @@
+# ============================================================
+# 📚 LIBRARIES - EXTERNAL
+# ============================================================
+import os
+import time
+import warnings
+import logging
+
+import pandas as pd
+from openpyxl import load_workbook
+from openpyxl.utils import get_column_letter
+
+warnings.filterwarnings("ignore")
+os.environ["TRANSFORMERS_NO_TF"] = "1"
+
+# ============================================================
+# LOGGING
+# ============================================================
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    formatter = logging.Formatter(
+        "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    )
+    file_handler = logging.FileHandler("SVOD.log", mode="w")
+    file_handler.setFormatter(formatter)
+    logger.addHandler(file_handler)
+
+# ============================================================
+# 📚 LIBRARIES - OWN FUNCTIONS
+# ============================================================
+from Packages import matching_pipeline
+
+pipeline = matching_pipeline()
+
+# ============================================================
+# INPUTS - DYNAMIC SYNOPSIS LIMITS
+# ============================================================
+logger.info("Enter dynamic synopsis column details")
+
+while True:
+    try:
+        synopsis_count = int(input("Enter number of synopsis columns needed: ").strip())
+
+        if synopsis_count <= 0:
+            print("❌ Number of synopsis columns must be greater than 0.")
+            continue
+
+        break
+
+    except ValueError:
+        print("❌ Invalid input. Please enter a numeric value.")
+
+synopsis_limits = []
+
+for i in range(1, synopsis_count + 1):
+    while True:
+        try:
+            limit = int(input(f"Enter character limit for synopsis column {i}: ").strip())
+
+            if limit <= 0:
+                print("❌ Character limit must be greater than 0.")
+                continue
+
+            synopsis_limits.append(limit)
+            break
+
+        except ValueError:
+            print("❌ Invalid input. Please enter numeric character limit.")
+
+template_type = pipeline.ask_content_type()
+
+final_df = pipeline.run_template_pipeline(
+    content_type=template_type,
+    top_k=5,
+    ce_threshold=0.75
+)
+
+output_folder = pipeline.select_output_folder()
+format_check_path = os.path.join(output_folder, "WBTVD or WB2B or FOUNDRY - Format.csv")
+english_path = format_check_path
+temp_path = output_folder
+
+final_df.to_csv(format_check_path, index=False)
+
+logger.info("File verification Done")
+verify = input("File verification Done [y/n]: ").strip().lower()
+
+# ============================================================
+# HELPER FUNCTIONS
+# ============================================================
+def get_base_columns():
+    return [
+        "Sr.No.",
+        "Category",
+        "Season",
+        "Episode",
+        "Source Title (Long Description)",
+        "Localized Title",
+        "WM Internal Reference",
+        "US Release Date"
+    ]
+
+
+def apply_dynamic_synopsis_columns(df, source_df, synopsis_limits, is_translation=False):
+    """
+    Dynamically creates synopsis source and translation columns.
+
+    For each entered limit, creates:
+    1. Synopsis ({limit}) SOURCE ({limit} Character Limit)
+    2. Source char. Counter ({limit})
+    3. Synopsis ({limit}) TRANSLATION ({limit} Character Limit)
+    4. Translation char. Count ({limit})
+
+    Same structure is applied for English and translation sheets.
+    """
+
+    base_columns = get_base_columns()
+
+    for col in base_columns:
+        if col not in df.columns:
+            df[col] = ""
+
+    output_df = df[base_columns].copy()
+    column_order = base_columns.copy()
+    row_count = len(output_df)
+
+    for limit in synopsis_limits:
+        source_col = f"Synopsis ({limit}) SOURCE ({limit} Character Limit)"
+        source_count_col = f"Source char. Counter ({limit})"
+
+        translation_col = f"Synopsis ({limit}) TRANSLATION ({limit} Character Limit)"
+        translation_count_col = f"Translation char. Count ({limit})"
+
+        # Add columns in final order first
+        column_order.extend([
+            source_col,
+            source_count_col,
+            translation_col,
+            translation_count_col
+        ])
+
+        # SOURCE synopsis column
+        output_df[source_col] = pipeline.char_limit(limit, source_df, "yes")
+
+        # TRANSLATION synopsis column
+        if is_translation:
+            output_df[translation_col] = pipeline.char_limit(limit, df)
+        else:
+            output_df[translation_col] = ""
+
+        # Dynamic Excel column letters
+        source_excel_col = get_column_letter(column_order.index(source_col) + 1)
+        translation_excel_col = get_column_letter(column_order.index(translation_col) + 1)
+
+        # LEN formulas
+        output_df[source_count_col] = [
+            f"=LEN({source_excel_col}{row_num})"
+            for row_num in range(2, row_count + 2)
+        ]
+
+        output_df[translation_count_col] = [
+            f"=LEN({translation_excel_col}{row_num})"
+            for row_num in range(2, row_count + 2)
+        ]
+
+    return output_df[column_order]
+
+
+def prepare_english_dataframe(df, template_type, synopsis_limits):
+    df = df.copy()
+
+    if "Season" not in df.columns:
+        df["Season"] = 0
+
+    if "Episode" not in df.columns:
+        df["Episode"] = 0
+
+    df["Season"] = pd.to_numeric(df["Season"], errors="coerce").fillna(0).astype(int)
+    df["Episode"] = pd.to_numeric(df["Episode"], errors="coerce").fillna(0).astype(int)
+
+    if "Primary Release Date" in df.columns:
+        df["Primary Release Date"] = pd.to_datetime(
+            df["Primary Release Date"],
+            errors="coerce"
+        )
+
+    if template_type == "series":
+        df = df.sort_values(["Season", "Episode"]).reset_index(drop=True)
+    else:
+        title_col = pipeline.get_output_title_column(df)
+
+        if title_col:
+            df = df.sort_values(by=[title_col]).reset_index(drop=True)
+        else:
+            df = df.reset_index(drop=True)
+
+    df["Sr.No."] = range(1, len(df) + 1)
+    df["Category"] = "WB"
+
+    title_col = pipeline.get_output_title_column(df)
+
+    if title_col is None:
+        raise ValueError("❌ No valid title column found for output creation.")
+
+    df["Source Title (Long Description)"] = df[title_col]
+
+    if template_type == "series":
+        df["Source Title (Long Description)"] = [
+            f"{title}: Season {season}" if episode == 0 and season != 0 else title
+            for title, episode, season in zip(
+                df["Source Title (Long Description)"],
+                df["Episode"],
+                df["Season"]
+            )
+        ]
+
+    df["Localized Title"] = ""
+
+    if "MPM Number" in df.columns:
+        df["WM Internal Reference"] = df["MPM Number"]
+    elif "uuid" in df.columns:
+        df["WM Internal Reference"] = df["uuid"]
+    else:
+        df["WM Internal Reference"] = ""
+
+    if "Primary Release Date" in df.columns:
+        df["US Release Date"] = df["Primary Release Date"].dt.strftime("%Y-%m-%d")
+    else:
+        df["US Release Date"] = ""
+
+    return apply_dynamic_synopsis_columns(
+        df=df,
+        source_df=df,
+        synopsis_limits=synopsis_limits,
+        is_translation=False
+    )
+
+
+def prepare_translation_dataframe(
+    df_trans,
+    english_df,
+    template_type,
+    synopsis_limits,
+    lang_name
+):
+    df_trans = df_trans.copy()
+    english_df = english_df.copy()
+
+    # ========================================================
+    # PREPARE TRANSLATION SEASON / EPISODE
+    # ========================================================
+    if "season-number" in df_trans.columns:
+        df_trans["Season"] = pd.to_numeric(
+            df_trans["season-number"],
+            errors="coerce"
+        ).fillna(0).astype(int)
+    else:
+        df_trans["Season"] = 0
+
+    if "episode-number" in df_trans.columns:
+        df_trans["Episode"] = pd.to_numeric(
+            df_trans["episode-number"],
+            errors="coerce"
+        ).fillna(0).astype(int)
+    else:
+        df_trans["Episode"] = 0
+
+    df_trans = df_trans.sort_values(["Season", "Episode"]).reset_index(drop=True)
+
+    # ========================================================
+    # PREPARE ENGLISH SEASON / EPISODE
+    # ========================================================
+    if "Season" not in english_df.columns:
+        english_df["Season"] = 0
+
+    if "Episode" not in english_df.columns:
+        english_df["Episode"] = 0
+
+    english_df["Season"] = pd.to_numeric(
+        english_df["Season"],
+        errors="coerce"
+    ).fillna(0).astype(int)
+
+    english_df["Episode"] = pd.to_numeric(
+        english_df["Episode"],
+        errors="coerce"
+    ).fillna(0).astype(int)
+
+    if "Primary Release Date" in english_df.columns:
+        english_df["Primary Release Date"] = pd.to_datetime(
+            english_df["Primary Release Date"],
+            errors="coerce"
+        )
+    else:
+        english_df["Primary Release Date"] = ""
+
+    # ========================================================
+    # MERGE ENGLISH WITH TRANSLATION DATA
+    # ========================================================
+    required_english_cols = ["uuid", "Season", "Episode", "Primary Release Date"]
+    optional_english_cols = []
+
+    if "*Title name" in english_df.columns:
+        optional_english_cols.append("*Title name")
+
+    if "MPM Number" in english_df.columns:
+        optional_english_cols.append("MPM Number")
+
+    merge_cols = required_english_cols + optional_english_cols
+
+    df = pd.merge(
+        english_df[merge_cols],
+        df_trans,
+        on="uuid",
+        how="left",
+        suffixes=("_eng", "_trans")
+    )
+
+    if "*Title name" in df.columns and df["*Title name"].isna().any():
+        raise ValueError(f"❌ English mismatch in {lang_name}")
+
+    df["Sr.No."] = range(1, len(df) + 1)
+    df["Category"] = "WB"
+
+    if "Season_eng" in df.columns:
+        df["Season"] = df["Season_eng"]
+
+    if "Episode_eng" in df.columns:
+        df["Episode"] = df["Episode_eng"]
+
+    title_col = pipeline.get_output_title_column(df)
+
+    if title_col is None:
+        if "*Title name" in df.columns:
+            title_col = "*Title name"
+        else:
+            raise ValueError(f"❌ No title column found in translated sheet: {lang_name}")
+
+    df["Source Title (Long Description)"] = df[title_col]
+
+    if "main-title" in df.columns:
+        df["Localized Title"] = df["main-title"].fillna("")
+    else:
+        df["Localized Title"] = ""
+
+    if template_type == "series":
+        df["Source Title (Long Description)"] = [
+            f"{title}: Season {int(season)}" if episode == 0 and season != 0 else title
+            for title, episode, season in zip(
+                df["Source Title (Long Description)"],
+                df["Episode"],
+                df["Season"]
+            )
+        ]
+
+    if "MPM Number" in df.columns:
+        df["WM Internal Reference"] = df["MPM Number"]
+    elif "uuid" in df.columns:
+        df["WM Internal Reference"] = df["uuid"]
+    else:
+        df["WM Internal Reference"] = ""
+
+    if "Primary Release Date" in df.columns:
+        df["US Release Date"] = pd.to_datetime(
+            df["Primary Release Date"],
+            errors="coerce"
+        ).dt.strftime("%Y-%m-%d")
+    else:
+        df["US Release Date"] = ""
+
+    return apply_dynamic_synopsis_columns(
+        df=df,
+        source_df=english_df,
+        synopsis_limits=synopsis_limits,
+        is_translation=True
+    )
+
+
+def create_dynamic_summary(output_file, synopsis_limits):
+    """
+    Creates dynamic Info sheet based on the synopsis limits entered by user.
+    No hardcoded short / long / too_long logic.
+    """
+
+    summary_rows = []
+    sheets = pd.read_excel(output_file, sheet_name=None)
+
+    for sheet_name, df in sheets.items():
+        if sheet_name == "Info":
+            continue
+
+        summary_data = {
+            "Sheet": sheet_name
+        }
+
+        total_word_count = 0
+
+        for limit in synopsis_limits:
+            source_col = f"Synopsis ({limit}) SOURCE ({limit} Character Limit)"
+            translation_col = f"Synopsis ({limit}) TRANSLATION ({limit} Character Limit)"
+
+            source_status_col = f"Synopsis ({limit}) ENGLISH ({limit} Character Limit)"
+            translation_status_col = f"Synopsis ({limit}) TRANSLATION ({limit} Character Limit)"
+            translation_len_status_col = f"Synopsis ({limit}) TRANS_len ({limit} Character Limit)"
+
+            if source_col in df.columns:
+                source_series = df[source_col]
+                source_status = pipeline.synopsis_status(source_series, limit)
+            else:
+                source_series = pd.Series(dtype="object")
+                source_status = "Not available"
+
+            if translation_col in df.columns:
+                translation_series = df[translation_col]
+                translation_status = pipeline.availability_status(translation_series)
+                translation_len_status = pipeline.synopsis_status(translation_series, limit)
+            else:
+                translation_series = pd.Series(dtype="object")
+                translation_status = "Not available"
+                translation_len_status = "Not available"
+
+            if source_col in df.columns and translation_col in df.columns:
+                word_count = pipeline.conditional_word_count(
+                    source_series,
+                    translation_series
+                )
+            else:
+                word_count = 0
+
+            total_word_count += word_count
+
+            summary_data[translation_status_col] = translation_status
+            summary_data[source_status_col] = source_status
+            summary_data[translation_len_status_col] = translation_len_status
+
+        summary_data["Word_Count"] = total_word_count
+        summary_rows.append(summary_data)
+
+    return pd.DataFrame(summary_rows)
+
+
+def format_sheet_safely(ws):
+    """
+    Safely apply formatting to a worksheet.
+
+    format_sheet_openpyxl() now detects synopsis columns
+    dynamically from the headers, so no synopsis limits
+    need to be passed.
+    """
+    try:
+        pipeline.format_sheet_openpyxl(ws)
+
+    except Exception as e:
+        logger.warning(
+            f"Formatting skipped for sheet '{ws.title}': {e}"
+        )
+
+
+# ============================================================
+# MAIN TEMPLATE CREATION
+# ============================================================
+if verify == "y":
+    only_english = input("Is the multilanguage folder available? [y/n]: ").strip().lower()
+    path = None
+
+    if only_english == "y":
+        path = pipeline.pick_multilang_folder()
+
+    series_name = input("Enter the Series name: ").strip()
+    series = f"SVOD_{series_name}"
+
+    en_path = english_path
+    temp = temp_path
+
+    output_file = os.path.join(temp, f"{series}_Template.xlsx")
+
+    # =========================
+    # DELETE OLD FILE
+    # =========================
+    if os.path.exists(output_file):
+        try:
+            os.remove(output_file)
+        except PermissionError:
+            raise RuntimeError("❌ Excel file is open. Close it and retry.")
+
+    # =========================
+    # LOAD ENGLISH MASTER
+    # =========================
+    english = pd.read_csv(en_path)
+
+    english_prepared = prepare_english_dataframe(
+        df=english,
+        template_type=template_type,
+        synopsis_limits=synopsis_limits
+    )
+
+    written_sheets = []
+
+    try:
+        with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
+
+            # ====================================
+            # ENGLISH SHEET
+            # ====================================
+            english_prepared.to_excel(writer, sheet_name="English", index=False)
+            written_sheets.append("English")
+
+            # ====================================
+            # TRANSLATION FILES
+            # ====================================
+            if only_english == "y":
+
+                for file in os.listdir(path):
+                    if not file.endswith(".csv"):
+                        continue
+
+                    try:
+                        parts = file.split("-")
+
+                        if len(parts) < 3 or "export_" not in parts[2]:
+                            logger.warning(f"Skipping file with unexpected format: {file}")
+                            continue
+
+                        name = (
+                            parts[2]
+                            .split("export_")[1]
+                            .replace("_", " ")
+                            .replace(".csv", "")
+                            .strip()
+                        )
+
+                        if name == "English United States":
+                            continue
+
+                        df_trans = pd.read_csv(os.path.join(path, file))
+
+                        translated_df = prepare_translation_dataframe(
+                            df_trans=df_trans,
+                            english_df=english,
+                            template_type=template_type,
+                            synopsis_limits=synopsis_limits,
+                            lang_name=name
+                        )
+
+                        safe_sheet_name = name[:31]
+
+                        translated_df.to_excel(
+                            writer,
+                            sheet_name=safe_sheet_name,
+                            index=False
+                        )
+
+                        written_sheets.append(safe_sheet_name)
+
+                    except Exception as e:
+                        logger.error(f"Failed processing {file}: {e}")
+
+                if len(written_sheets) == 1:
+                    pd.DataFrame({
+                        "Message": ["No valid translation data found"]
+                    }).to_excel(
+                        writer,
+                        sheet_name="Info",
+                        index=False
+                    )
+
+    except PermissionError:
+        raise RuntimeError("❌ Excel file is open. Close it before running.")
+
+    time.sleep(2)
+
+    # ============================================================
+    # SUMMARY SHEET - DYNAMIC
+    # ============================================================
+    summary_df = create_dynamic_summary(
+        output_file=output_file,
+        synopsis_limits=synopsis_limits
+    )
+
+    with pd.ExcelWriter(
+        output_file,
+        mode="a",
+        engine="openpyxl",
+        if_sheet_exists="replace"
+    ) as writer:
+        summary_df.to_excel(writer, sheet_name="Info", index=False)
+
+    # ============================================================
+    # FORMAT SHEETS
+    # ============================================================
+    wb = load_workbook(output_file)
+
+    for name in written_sheets:
+        if name in wb.sheetnames:
+            ws = wb[name]
+            format_sheet_safely(ws)
+
+    wb.save(output_file)
+
+    logger.info(f"Template '{series}' created successfully.")
+    print(f"✅ Template '{series}' created successfully at:\n{output_file}")
+
+else:
+    print("❌ File verification was not confirmed. Template creation stopped.")
