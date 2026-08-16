@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Automated SVOD Template Creation Workflow</title>
+<style>
+  body {
+    margin: 0;
+    background: #0753c7;
+    font-family: Arial, Helvetica, sans-serif;
+  }
+  .page {
+    width: 100%;
+    min-width: 1660px;
+    padding: 32px 0 80px;
+    background: #0753c7;
+  }
+  .wrapper {
+    width: 1600px;
+    margin: 0 auto;
+    background: #0b1f86;
+    border: 5px solid #06166a;
+    box-shadow: -58px 0 0 #0b95f5, 0 58px 0 #0b95f5;
+  }
+  svg {
+    display: block;
+    width: 1600px;
+    height: 2460px;
+  }
+  .title { fill: #f7f9ff; font-size: 40px; font-weight: 800; }
+  .box { fill: #0b1f86; stroke: #008b95; stroke-width: 3; }
+  .soft { fill: rgba(0,139,149,0.16); stroke: #00a6b7; stroke-width: 3; }
+  .review { fill: #1c6d87; stroke: #073c4e; stroke-width: 3; }
+  .text-title { fill: #f7f9ff; font-size: 22px; font-weight: 800; }
+  .text { fill: #c9edff; font-size: 16px; }
+  .small { fill: #c9edff; font-size: 14px; }
+  .white { fill: #ffffff; }
+  .source { fill: #f7f9ff; font-size: 31px; font-weight: 800; }
+  .arrow { fill: none; stroke: #008b95; stroke-width: 4; marker-end: url(#arrowHead); }
+  .arrow-red { fill: none; stroke: #ff7070; stroke-width: 4; marker-end: url(#arrowHeadRed); }
+  .time-panel { fill: #7ac4e8; stroke: #00a6b7; stroke-width: 3; }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="wrapper">
+    <svg viewBox="0 0 1600 2460" role="img" aria-label="Automated SVOD Template Creation Workflow">
+      <defs>
+        <marker id="arrowHead" markerWidth="12" markerHeight="12" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#008b95" />
+        </marker>
+        <marker id="arrowHeadRed" markerWidth="12" markerHeight="12" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#ff7070" />
+        </marker>
+      </defs>
+
+      <!-- Title -->
+      <text x="800" y="72" text-anchor="middle" class="title">Automated SVOD Template Creation Workflow</text>
+      <line x1="480" y1="92" x2="1120" y2="92" stroke="#f7f9ff" stroke-width="3" />
+
+      <!-- Source panel -->
+      <rect x="70" y="145" width="350" height="560" class="box" />
+      <text x="105" y="205" class="source">• WBTV</text>
+      <rect x="308" y="164" width="54" height="58" rx="6" fill="#1bae59" />
+      <text x="335" y="202" text-anchor="middle" font-size="22" font-weight="800" fill="#ffffff">X</text>
+
+      <text x="105" y="290" class="source">• WB2B</text>
+      <rect x="308" y="249" width="54" height="58" rx="6" fill="#1bae59" />
+      <text x="335" y="287" text-anchor="middle" font-size="22" font-weight="800" fill="#ffffff">X</text>
+
+      <text x="105" y="375" class="source">• Foundry</text>
+      <text x="105" y="420" class="small">All source files are selected from</text>
+      <text x="105" y="443" class="small">the same input folder.</text>
+
+      <rect x="105" y="472" width="270" height="210" fill="#f8fbff" stroke="#000000" stroke-width="3" />
+      <rect x="362" y="497" width="60" height="52" rx="6" fill="#f9c74f" />
+      <text x="392" y="530" text-anchor="middle" font-size="15" font-weight="800" fill="#704800">ZIP</text>
+
+      <!-- CSV icons -->
+      <g>
+        <g transform="translate(135,500)"><rect width="56" height="60" fill="#fff" stroke="#d6e3ea" stroke-width="2"/><line x1="14" y1="18" x2="42" y2="18" stroke="#22a860" stroke-width="3"/><line x1="14" y1="31" x2="42" y2="31" stroke="#22a860" stroke-width="3"/><rect y="36" width="56" height="24" fill="#22a860" rx="3"/><text x="28" y="53" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">CSV</text></g>
+        <g transform="translate(215,500)"><rect width="56" height="60" fill="#fff" stroke="#d6e3ea" stroke-width="2"/><line x1="14" y1="18" x2="42" y2="18" stroke="#22a860" stroke-width="3"/><line x1="14" y1="31" x2="42" y2="31" stroke="#22a860" stroke-width="3"/><rect y="36" width="56" height="24" fill="#22a860" rx="3"/><text x="28" y="53" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">CSV</text></g>
+        <g transform="translate(295,500)"><rect width="56" height="60" fill="#fff" stroke="#d6e3ea" stroke-width="2"/><line x1="14" y1="18" x2="42" y2="18" stroke="#22a860" stroke-width="3"/><line x1="14" y1="31" x2="42" y2="31" stroke="#22a860" stroke-width="3"/><rect y="36" width="56" height="24" fill="#22a860" rx="3"/><text x="28" y="53" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">CSV</text></g>
+        <g transform="translate(135,590)"><rect width="56" height="60" fill="#fff" stroke="#d6e3ea" stroke-width="2"/><line x1="14" y1="18" x2="42" y2="18" stroke="#22a860" stroke-width="3"/><line x1="14" y1="31" x2="42" y2="31" stroke="#22a860" stroke-width="3"/><rect y="36" width="56" height="24" fill="#22a860" rx="3"/><text x="28" y="53" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">CSV</text></g>
+        <g transform="translate(215,590)"><rect width="56" height="60" fill="#fff" stroke="#d6e3ea" stroke-width="2"/><line x1="14" y1="18" x2="42" y2="18" stroke="#22a860" stroke-width="3"/><line x1="14" y1="31" x2="42" y2="31" stroke="#22a860" stroke-width="3"/><rect y="36" width="56" height="24" fill="#22a860" rx="3"/><text x="28" y="53" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">CSV</text></g>
+        <g transform="translate(295,590)"><rect width="56" height="60" fill="#fff" stroke="#d6e3ea" stroke-width="2"/><line x1="14" y1="18" x2="42" y2="18" stroke="#22a860" stroke-width="3"/><line x1="14" y1="31" x2="42" y2="31" stroke="#22a860" stroke-width="3"/><rect y="36" width="56" height="24" fill="#22a860" rx="3"/><text x="28" y="53" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">CSV</text></g>
+      </g>
+
+      <!-- Time saved panel removed as requested -->
+
+      <!-- Main sequence -->
+      <rect x="520" y="145" width="285" height="125" class="box" />
+      <text x="540" y="185" class="text-title">1. Select Input Folder</text>
+      <text x="540" y="218" class="text">User selects folder that contains</text>
+      <text x="540" y="243" class="text">WBTV, WB2B and/or Foundry.</text>
+
+      <rect x="900" y="145" width="285" height="125" class="box" />
+      <text x="920" y="185" class="text-title">2. Detect Sources</text>
+      <text x="920" y="218" class="text">detect_sources() identifies</text>
+      <text x="920" y="243" class="text">WBTV, WB2B and Foundry files.</text>
+
+      <rect x="520" y="345" width="285" height="125" class="box" />
+      <text x="540" y="385" class="text-title">3. Load Data</text>
+      <text x="540" y="418" class="text">Pandas reads CSV / Excel files</text>
+      <text x="540" y="443" class="text">for each detected source.</text>
+
+      <rect x="900" y="345" width="285" height="125" class="box" />
+      <text x="920" y="385" class="text-title">4. Standardize Fields</text>
+      <text x="920" y="418" class="text">Normalize titles, dates, Season,</text>
+      <text x="920" y="443" class="text">Episode, UUID and MPM.</text>
+
+      <rect x="520" y="545" width="285" height="140" class="box" />
+      <text x="540" y="585" class="text-title">5. User Settings</text>
+      <text x="540" y="618" class="text">Synopsis count, character limits,</text>
+      <text x="540" y="643" class="text">and template type:</text>
+      <text x="540" y="668" class="text">series or movie.</text>
+
+      <rect x="900" y="545" width="285" height="140" class="box" />
+      <text x="920" y="585" class="text-title">6. Output Setup</text>
+      <text x="920" y="618" class="text">Select output folder and clean</text>
+      <text x="920" y="643" class="text">old files before saving.</text>
+
+      <rect x="520" y="745" width="665" height="105" class="soft" />
+      <text x="852" y="786" text-anchor="middle" class="text-title">7. Route Decision</text>
+      <text x="852" y="820" text-anchor="middle" class="text">Choose Series Route or Movie Route based on template type and available sources.</text>
+
+      <!-- Connected arrows from source panel -->
+      <path d="M362,193 C440,193 450,205 512,205" class="arrow" />
+      <path d="M362,278 C440,278 450,213 512,213" class="arrow" />
+      <path d="M422,523 C475,523 455,225 512,225" class="arrow" />
+      <text x="105" y="135" class="small">Source files connect into the first pipeline step.</text>
+
+      <path d="M805,207 L890,207" class="arrow" />
+      <path d="M1042,270 L1042,320 L662,320 L662,337" class="arrow" />
+      <path d="M805,407 L890,407" class="arrow" />
+      <path d="M1042,470 L1042,518 L662,518 L662,537" class="arrow" />
+      <path d="M805,615 L890,615" class="arrow" />
+      <path d="M1042,685 L1042,715 L852,715 L852,737" class="arrow" />
+
+      <!-- Branch lanes -->
+      <rect x="100" y="930" width="610" height="535" class="box" />
+      <rect x="130" y="960" width="170" height="40" fill="#008b95" />
+      <text x="215" y="987" text-anchor="middle" font-size="19" font-weight="800" fill="#fff">SERIES ROUTE</text>
+
+      <rect x="140" y="1030" width="530" height="78" class="box" />
+      <text x="160" y="1060" class="text-title">8A. Load Foundry Series Assets</text>
+      <text x="160" y="1090" class="text">Split Foundry into series / season rows and episode rows.</text>
+      <path d="M405,1108 L405,1140" class="arrow" />
+
+      <rect x="140" y="1148" width="530" height="78" class="box" />
+      <text x="160" y="1178" class="text-title">8B. Load WBTV / WB2B Series Data</text>
+      <text x="160" y="1208" class="text">Standardize Season, Episode, MPM, dates and synopsis fields.</text>
+      <path d="M405,1226 L405,1258" class="arrow" />
+
+      <rect x="140" y="1266" width="530" height="78" class="box" />
+      <text x="160" y="1296" class="text-title">8C. Match WBTV with WB2B Episodes</text>
+      <text x="160" y="1326" class="text">Episode 0 uses direct merge. Episodes use semantic matching.</text>
+      <path d="M405,1344 L405,1376" class="arrow" />
+
+      <rect x="140" y="1384" width="530" height="66" class="box" />
+      <text x="160" y="1414" class="text-title">8D. Match to Foundry Episodes</text>
+      <text x="160" y="1440" class="text">Pull UUID, asset type, titles, descriptions, Season and Episode.</text>
+
+      <rect x="790" y="930" width="610" height="535" class="box" />
+      <rect x="820" y="960" width="165" height="40" fill="#008b95" />
+      <text x="902" y="987" text-anchor="middle" font-size="19" font-weight="800" fill="#fff">MOVIE ROUTE</text>
+
+      <rect x="830" y="1030" width="530" height="78" class="box" />
+      <text x="850" y="1060" class="text-title">8A. Load Foundry Movie Assets</text>
+      <text x="850" y="1090" class="text">Filter movie, feature or film assets from Foundry.</text>
+      <path d="M1095,1108 L1095,1140" class="arrow" />
+
+      <rect x="830" y="1148" width="530" height="78" class="box" />
+      <text x="850" y="1178" class="text-title">8B. Load WBTV / WB2B Movie Data</text>
+      <text x="850" y="1208" class="text">Find title, release date, MPM and synopsis columns.</text>
+      <path d="M1095,1226 L1095,1258" class="arrow" />
+
+      <rect x="830" y="1266" width="530" height="78" class="box" />
+      <text x="850" y="1296" class="text-title">8C. Match WBTV with WB2B Movies</text>
+      <text x="850" y="1326" class="text">Title-only semantic matching enriches movie metadata.</text>
+      <path d="M1095,1344 L1095,1376" class="arrow" />
+
+      <rect x="830" y="1384" width="530" height="66" class="box" />
+      <text x="850" y="1414" class="text-title">8D. Match to Foundry Movies</text>
+      <text x="850" y="1440" class="text">Pull UUID, asset type, titles, descriptions, Season and Episode.</text>
+
+      <path d="M700,850 C580,890 470,890 405,920" class="arrow" />
+      <path d="M1000,850 C1070,890 1090,890 1095,920" class="arrow" />
+
+      <!-- Merge back -->
+      <rect x="510" y="1535" width="480" height="88" class="review" />
+      <text x="750" y="1587" text-anchor="middle" font-size="24" fill="#fff">9. Analyst Review Format CSV</text>
+      <path d="M405,1465 C405,1515 575,1515 655,1527" class="arrow" />
+      <path d="M1095,1465 C1095,1515 930,1515 845,1527" class="arrow" />
+
+      <rect x="520" y="1688" width="285" height="120" class="box" />
+      <text x="540" y="1728" class="text-title">10. Verification Gate</text>
+      <text x="540" y="1760" class="text">Prompt: File verification</text>
+      <text x="540" y="1785" class="text">Done [y/n].</text>
+
+      <rect x="900" y="1688" width="285" height="120" class="box" />
+      <text x="920" y="1728" class="text-title">11. Prepare Workbook</text>
+      <text x="920" y="1760" class="text">Create English sheet and</text>
+      <text x="920" y="1785" class="text">optional language sheets.</text>
+
+      <path d="M750,1623 L750,1680" class="arrow" />
+      <path d="M805,1748 L890,1748" class="arrow" />
+
+      <rect x="585" y="1832" width="280" height="58" fill="none" stroke="#ff7070" stroke-width="3" />
+      <text x="725" y="1870" text-anchor="middle" font-size="23" font-weight="800" fill="#ff7070">If "n": Stop</text>
+      <path d="M662,1808 L662,1824" class="arrow-red" />
+
+      <!-- Final output steps -->
+      <rect x="100" y="1975" width="290" height="125" class="box" />
+      <text x="120" y="2015" class="text-title">12. English Sheet</text>
+      <text x="120" y="2047" class="text">Base columns, source title,</text>
+      <text x="120" y="2072" class="text">references and synopsis columns.</text>
+
+      <rect x="445" y="1975" width="290" height="125" class="box" />
+      <text x="465" y="2015" class="text-title">13. Multilanguage Sheets</text>
+      <text x="465" y="2047" class="text">Merge translated Foundry</text>
+      <text x="465" y="2072" class="text">CSV rows by UUID.</text>
+
+      <rect x="790" y="1975" width="290" height="125" class="box" />
+      <text x="810" y="2015" class="text-title">14. Info Summary</text>
+      <text x="810" y="2047" class="text">Availability, length status,</text>
+      <text x="810" y="2072" class="text">and word count summary.</text>
+
+      <rect x="1135" y="1975" width="290" height="125" class="box" />
+      <text x="1155" y="2015" class="text-title">15. Final .xlsx</text>
+      <text x="1155" y="2047" class="text">Format sheets, highlight</text>
+      <text x="1155" y="2072" class="text">invalid cells and save.</text>
+
+      <path d="M1042,1808 L1042,1930 L245,1930 L245,1967" class="arrow" />
+      <path d="M390,2038 L436,2038" class="arrow" />
+      <path d="M735,2038 L781,2038" class="arrow" />
+      <path d="M1080,2038 L1126,2038" class="arrow" />
+
+      <text x="1350" y="2375" text-anchor="end" font-size="24" font-weight="800" fill="#fff">Final Output: SVOD Template .xlsx</text>
+    </svg>
+  </div>
+</div>
+</body>
+</html>
