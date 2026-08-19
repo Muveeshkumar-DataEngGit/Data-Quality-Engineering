@@ -1790,11 +1790,11 @@ class all_functions:
     def get_connection():
         "Used to connect to Snowflake database"
         return snowflake.connector.connect(
-            user='MUVEESHKUMAR.SHANMUGAM@WBD.COM',
-            account='WBD-COMMONDATAPROD',   
-            database='BOLT_MSC_CDS_PROD',
-            schema='ATOM_BI',
-            role='PUBLIC',
+            user='MUVEESHKUMAR.SHANMUGAM.COM',
+            account='COMMONDATAPROD',   
+            database='Pharmadatabase',
+            schema='Surgens',
+            role='Data Steward',
             authenticator='externalbrowser'
         )
 
